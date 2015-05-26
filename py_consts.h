@@ -4,9 +4,25 @@ typedef float ftype;
 #define gridNx 1500
 #define gridNy 256
 #define gridNz 600
+
+#ifndef NS
+#define NS 125
+const int Np=gridNx/3;
 const int GridNx=gridNx;
+#else
+const int Np=NS*10;
+const int GridNx=3*Np;
+#endif
+#ifndef NA
 const int GridNy=gridNy;
+#else 
+const int GridNy=NV;
+#endif
+#ifndef NV
 const int GridNz=gridNz;
+#else
+const int GridNz=3*NA;
+#endif
 
 #define NDev 2
 
@@ -18,7 +34,7 @@ const int GridNz=gridNz;
 //#define CLICK_BOOM
 
 const int Npmlx=2*5;//2*24;
-const int Npmly=5;//24;
+const int Npmly=15;//24;
 const int Npmlz=2*16;//128;
 
 const ftype ds=25./3, da=25./3, dv=25./3, dt=0.5;

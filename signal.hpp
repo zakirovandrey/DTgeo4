@@ -22,7 +22,6 @@ void TFSFsrc::set(const double _Vp, const double _Vs, const double _Rho) {
     w0 = gauss_waist*Vp/F0;
     Rh=srcXv*0.95;
     NastyaF0=F0*1;//M_PI;
-    Ampl=1.0;
     r0=1.0*Vp/F0;
     r1=r0+da;
     rstart=r0;

@@ -22,6 +22,9 @@ GENCODE_SM := -arch=sm_50
 else ifeq ($(ARCH),gpupc1)
 NVCC := nvcc -ccbin $(GCC) -O3
 GENCODE_SM := -arch=sm_35
+else ifeq ($(ARCH),D)
+NVCC := nvcc -ccbin $(GCC) -O3
+GENCODE_SM := -arch=sm_35
 else
 NVCC := nvcc -ccbin $(GCC) -O3
 GENCODE_SM := -arch=sm_50
@@ -110,7 +113,7 @@ dt.o: DTgeo.cu diamond.cu im3D.hpp im2D.h cuda_math.h params.h py_consts.h texmo
 	$(EXEC) $(NVCC) $(INCLUDES) $(ALL_CCFLAGS) $(NVCCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $<
 
 TEXMODEL_DEPS := texmodel.cu texmodel.cuh params.h py_consts.h cuda_math.h
-ifndef USE_AIVLIB_MODEL
+ifdef USE_AIVLIB_MODEL
 TEXMODEL_DEPS := $(TEXMODEL_DEPS) spacemodel/include/access2model.hpp
 obj_files := spacemodel/src/space_model.o spacemodel/src/middle_model.o $(obj_files)
 endif

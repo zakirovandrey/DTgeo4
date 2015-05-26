@@ -9,8 +9,8 @@ import sys
 import os
 sys.path.append("./spacemodel")
 
-from aivlib2.vctr2 import *
-from aivlib2.vctr3 import *
+from aivlib.vctr2 import *
+from aivlib.vctr3 import *
 from spacemodel import *
 
 import DTgeo
@@ -62,7 +62,7 @@ P.main_plast = False
 
 print 'load OK'
 
-SrcCoords_LOC  = [ GridNx/2*dx, GridNy/2*dy, 0]
+SrcCoords_LOC  = [ GridNx/2*dx, GridNy/2*dy, 6*dz]
 SrcCoords_GLOB = [ (Xmax+Xmin)/2., (Ymax+Ymin)/2., 0 ]
 
 boom = SM.get_par(SrcCoords_GLOB[0], SrcCoords_GLOB[1], SrcCoords_GLOB[2])
@@ -72,12 +72,13 @@ print "Phys_params at shotpoint %g %g %g\n"%(SM.Vp,SM.Vs,SM.sigma)
 SS = DTgeo.cvar.shotpoint
 SS.F0=0.03;
 SS.gauss_waist=0.2;
+SS.Ampl=0.0;
 SS.srcXs, SS.srcXv, SS.srcXa = SrcCoords_LOC[0],SrcCoords_LOC[1],SrcCoords_LOC[2];
 SS.BoxMs, SS.BoxPs = SS.srcXs-4.1*dx, SS.srcXs+4.1*dx; 
-SS.BoxMa, SS.BoxPa = SS.srcXa-5.1*dz, SS.srcXa+5.1*dz; 
+SS.BoxMa, SS.BoxPa = SS.srcXa-4.1*dz, SS.srcXa+4.1*dz; 
 SS.BoxMv, SS.BoxPv = SS.srcXv-5.1*dy, SS.srcXv+5.1*dy; 
 boxDiagLength=sqrt((SS.BoxPs-SS.BoxMs)**2+(SS.BoxPa-SS.BoxMa)**2+(SS.BoxMv-SS.BoxPv)**2)
-SS.tStop = 0#boxDiagLength/2/min(SM.Vp,0.0001+SM.Vs)+8/(pi*SS.F0)+10*dt # 5000*dt; # ((BoxPs-BoxMs)+(BoxPa-BoxMa)+(BoxMv-BoxPv))/c+2*M_PI/Omega;
+SS.tStop = boxDiagLength/2/min(SM.Vp,0.0001+SM.Vs)+8/(pi*SS.F0)+10*dt # 5000*dt; # ((BoxPs-BoxMs)+(BoxPa-BoxMa)+(BoxMv-BoxPv))/c+2*M_PI/Omega;
 SS.V_max = 7.0;
 SS.start = 0;
 

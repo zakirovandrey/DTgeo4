@@ -22,12 +22,6 @@ template<typename T1,typename T2> __host__ __device__ ftype2 make_ftype2(const T
 
 #include "py_consts.h"
 
-#ifndef NS
-#define NS 125
-const int Np=gridNx/3;
-#else
-const int Np=NS*10;
-#endif
 #ifndef NA
 #define NA (gridNz/3)
 #endif
