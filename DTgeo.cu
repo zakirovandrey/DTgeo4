@@ -48,11 +48,11 @@ int type_diag_flag=0;
 im3D_pars im3DHost;
 
 #ifdef USE_TEX_REFS
-extern texture<float2, cudaTextureType3D, cudaReadModeElementType> layerRefS;
-extern texture<float , cudaTextureType3D, cudaReadModeElementType> layerRefV;
-extern texture<float , cudaTextureType3D, cudaReadModeElementType> layerRefT;
+extern texture<coffS_t, cudaTextureType3D, cudaReadModeElementType> layerRefS;
+extern texture<float  , cudaTextureType3D, cudaReadModeElementType> layerRefV;
+extern texture<float  , cudaTextureType3D, cudaReadModeElementType> layerRefT;
 #endif
-texture<float2, cudaTextureType3D, cudaReadModeElementType> ShowRefS;
+texture<coffS_t, cudaTextureType3D, cudaReadModeElementType> ShowRefS;
 texture<float , cudaTextureType3D, cudaReadModeElementType> ShowRefV;
 texture<float , cudaTextureType3D, cudaReadModeElementType> ShowRefT;
 void CreateShowTexModel(){
@@ -67,29 +67,29 @@ void CreateShowTexModel(){
 
   cudaArray* DevModelS, *DevModelV, *DevModelT;
   cudaChannelFormatDesc channelDesc;
-  channelDesc = cudaCreateChannelDesc<float2>(); CHECK_ERROR( cudaMalloc3DArray(&DevModelS, &channelDesc, make_cudaExtent(parsHost.texs.texN[0].y,parsHost.texs.texN[0].z,parsHost.texs.texN[0].x)) );
-  channelDesc = cudaCreateChannelDesc<float >(); CHECK_ERROR( cudaMalloc3DArray(&DevModelV, &channelDesc, make_cudaExtent(parsHost.texs.texN[0].y,parsHost.texs.texN[0].z,parsHost.texs.texN[0].x)) );
-  channelDesc = cudaCreateChannelDesc<float >(); CHECK_ERROR( cudaMalloc3DArray(&DevModelT, &channelDesc, make_cudaExtent(parsHost.texs.texN[0].y,parsHost.texs.texN[0].z,parsHost.texs.texN[0].x)) );
+  channelDesc = cudaCreateChannelDesc<coffS_t>(); CHECK_ERROR( cudaMalloc3DArray(&DevModelS, &channelDesc, make_cudaExtent(parsHost.texs.texN[0].y,parsHost.texs.texN[0].z,parsHost.texs.texN[0].x)) );
+  channelDesc = cudaCreateChannelDesc<float  >(); CHECK_ERROR( cudaMalloc3DArray(&DevModelV, &channelDesc, make_cudaExtent(parsHost.texs.texN[0].y,parsHost.texs.texN[0].z,parsHost.texs.texN[0].x)) );
+  channelDesc = cudaCreateChannelDesc<float  >(); CHECK_ERROR( cudaMalloc3DArray(&DevModelT, &channelDesc, make_cudaExtent(parsHost.texs.texN[0].y,parsHost.texs.texN[0].z,parsHost.texs.texN[0].x)) );
 
   const int texNz = parsHost.texs.texN[0].y, texNy = parsHost.texs.texN[0].z;
   cudaMemcpy3DParms copyparms={0}; copyparms.srcPos=make_cudaPos(0,0,0); copyparms.dstPos=make_cudaPos(0,0,0);
   copyparms.kind=cudaMemcpyHostToDevice;
-  copyparms.srcPtr = make_cudaPitchedPtr(&parsHost.texs.HostLayerS[0][0], texNz*sizeof(float2), texNz, texNy);
+  copyparms.srcPtr = make_cudaPitchedPtr(&parsHost.texs.HostLayerS[0][0], texNz*sizeof(coffS_t), texNz, texNy);
   copyparms.dstArray = DevModelS;
   copyparms.extent = make_cudaExtent(texNz,texNy,parsHost.texs.texN[0].x);
   CHECK_ERROR( cudaMemcpy3D(&copyparms) );
-  copyparms.srcPtr = make_cudaPitchedPtr(&parsHost.texs.HostLayerV[0][0], texNz*sizeof(float ), texNz, texNy);
+  copyparms.srcPtr = make_cudaPitchedPtr(&parsHost.texs.HostLayerV[0][0], texNz*sizeof(float  ), texNz, texNy);
   copyparms.dstArray = DevModelV;
   copyparms.extent = make_cudaExtent(texNz,texNy,parsHost.texs.texN[0].x);
   CHECK_ERROR( cudaMemcpy3D(&copyparms) );
-  copyparms.srcPtr = make_cudaPitchedPtr(&parsHost.texs.HostLayerT[0][0], texNz*sizeof(float ), texNz, texNy);
+  copyparms.srcPtr = make_cudaPitchedPtr(&parsHost.texs.HostLayerT[0][0], texNz*sizeof(float  ), texNz, texNy);
   copyparms.dstArray = DevModelT;
   copyparms.extent = make_cudaExtent(texNz,texNy,parsHost.texs.texN[0].x);
   CHECK_ERROR( cudaMemcpy3D(&copyparms) );
 
-  channelDesc = cudaCreateChannelDesc<float2>(); CHECK_ERROR( cudaBindTextureToArray(ShowRefS, DevModelS, channelDesc) );
-  channelDesc = cudaCreateChannelDesc<float >(); CHECK_ERROR( cudaBindTextureToArray(ShowRefV, DevModelV, channelDesc) );
-  channelDesc = cudaCreateChannelDesc<float >(); CHECK_ERROR( cudaBindTextureToArray(ShowRefT, DevModelT, channelDesc) );
+  channelDesc = cudaCreateChannelDesc<coffS_t>(); CHECK_ERROR( cudaBindTextureToArray(ShowRefS, DevModelS, channelDesc) );
+  channelDesc = cudaCreateChannelDesc<float  >(); CHECK_ERROR( cudaBindTextureToArray(ShowRefV, DevModelV, channelDesc) );
+  channelDesc = cudaCreateChannelDesc<float  >(); CHECK_ERROR( cudaBindTextureToArray(ShowRefT, DevModelT, channelDesc) );
 }
 char* FuncStr[] = {"Sx","Sy","Sz","Tx","Ty","Tz", "Vx", "Vy", "Vz", "I1", "I2", "I3", "kappa=l+2m (rho*Vp^2)", "lambda (rho*(Vp^2-2*Vs^2))", 
 "mu_Tx (rho*Vs^2)", "mu_Ty (rho*Vs^2)", "mu_Tz (rho*Vs^2)",
@@ -270,6 +270,10 @@ void setPMLcoeffs(float* k1x, float* k2x, float* k1y, float* k2y, float* k1z, fl
 }
 void GeoParamsHost::set(){
   
+  #ifndef USE_WINDOW
+  if(Np!=Ns) { printf("Error: if not defined USE_WINDOW Np must be equal Ns\n"); exit(-1); }
+  #endif//USE_WINDOW
+
   int node=0, Nprocs=1;
   #ifdef MPI_ON
   MPI_Comm_rank (MPI_COMM_WORLD, &node);

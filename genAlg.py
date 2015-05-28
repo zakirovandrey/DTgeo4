@@ -128,7 +128,12 @@ class data():
     acc_coff = {2:["1",], 4:["p27","1"]}[order]
     hind = self.fldind-self.fldindS*2-(self.proj if self.typus=="S" else 0)
     if self.typus!="S" or self.proj==0: print "  coff%s = Arrcoff%s[%d];"%(self.typus,self.typus,hind)
-    cofftype = map(lambda np: "*coffS.%s"%'yx'[self.proj==np],(0,1,2)) if self.typus=="S" else ["*coff%s"%self.typus,]*3
+    cofftype_aniso = []
+    cofftype       = map(lambda np: "*coffS.%s"%'yx'[self.proj==np],(0,1,2)) if self.typus=="S" else ["*coff%s"%self.typus,]*3
+    if self.typus=="S":
+      cofftype_aniso.append( map(lambda xyzw: "*coffS.%s"%xyzw, ("xyy","ywz","yzw")[self.proj]) )
+      cofftype_aniso.append( map(lambda xyzw: "*coffS.%s"%xyzw, ("wyz","yxy","zyw")[self.proj]) )
+      cofftype_aniso.append( map(lambda xyzw: "*coffS.%s"%xyzw, ("wzy","zwy","yyx")[self.proj]) )
     dtdr_coffs = (cofftype[0],cofftype[1],cofftype[2]) if SqGrid else ("*dtdxd24%s"%cofftype[0],"*dtdyd24%s"%cofftype[1],"*dtdzd24%s"%cofftype[2])
     if self.neigh[0][0].name: difx = "-%13s+%13s+%s*%13s-%s*%13s"%(self.neigh[0][2].name, self.neigh[0][3].name, acc_coff[0],self.neigh[0][0].name, acc_coff[0],self.neigh[0][1].name, )
     if self.neigh[1][0].name: dify = "-%13s+%13s+%s*%13s-%s*%13s"%(self.neigh[1][2].name, self.neigh[1][3].name, acc_coff[0],self.neigh[1][0].name, acc_coff[0],self.neigh[1][1].name, )
@@ -137,7 +142,14 @@ class data():
       dify = "-(%s%13s)+(%s%13s)+(%s%s*%13s)-(%s%s*%13s)"%(free_refl[2], self.neigh[1][2].name, free_refl[3], self.neigh[1][3].name, free_refl[0],acc_coff[0],self.neigh[1][0].name, free_refl[1],acc_coff[0],self.neigh[1][1].name, )
     global uniqdifN;
     signx,signy,signz = "+++"
-    if self.typus in "VS":   print "  difx[%2d] = (%s)%s + (%s)%s;"%(uniqdifN,difx,dtdr_coffs[0], dify,dtdr_coffs[1]);
+    if self.typus=="V":   print "  difx[%2d] = (%s)%s + (%s)%s;"%(uniqdifN,difx,dtdr_coffs[0], dify,dtdr_coffs[1]);
+    elif self.typus=="S":
+      print "  #ifndef ANISO_TR\n  difx[%2d] = (%s)%s + (%s)%s;"%(uniqdifN,difx,dtdr_coffs[0], dify,dtdr_coffs[1]);
+      for aniso_type in range(len(cofftype_aniso)):
+        cft = cofftype_aniso[aniso_type]; dtdr_coffs = cft if SqGrid else ("*dtdxd24%s"%cft[0],"*dtdyd24%s"%cft[1],"*dtdzd24%s"%cft[2])
+        print "  #elif ANISO_TR==%d"%(aniso_type+1)
+        print "  difx[%2d] = (%s)%s + (%s)%s;"%(uniqdifN,difx,dtdr_coffs[0], dify,dtdr_coffs[1]);
+      print "  #else\n  #error UNKNOWN ANISOTROPY TYPE\n  #endif"
     else:
       if difx: print "  difx[%2d] = (%s)%s;"%(uniqdifN,difx, dtdr_coffs[0]); 
       if dify: print "  dify[%2d] = (%s)%s;"%(uniqdifN,dify, dtdr_coffs[1]);
@@ -148,7 +160,7 @@ class data():
     print "  //------- update %s"%self.typus,"xyz"[self.proj],self.coord
     #print "  h = modelRag%s->h[%2d][iz];"%("MCP"[1+self.plsId[0]],self.fldind-self.fldindS*2-(self.proj if self.typus=="S" else 0) )
     hind = self.fldind-self.fldindS*2-(self.proj if self.typus=="S" else 0)
-    #print "  TEXCOFF%s(%d, %+d, %+d, iz*2%+d, I,h[%2d]);"%(self.typus,hind,self.coord[0],self.coord[1],self.coord[2], hind)
+    #print "  TEXCOFF%s(%d, %+d, %+d, iz*2%+d, I,h[%2d]);"%(self.typus+('','xyz'[fld.proj])[fld.typus=='T'],hind,self.coord[0],self.coord[1],self.coord[2], hind)
     if self.typus!="S" or self.proj==0: print "  coff%s = Arrcoff%s[%d];"%(self.typus,self.typus,hind)
     pml=1; pmlx=0; pmly=0; pmlz=1
     if data.Atype=='S' or data.Atype[0]=='X': pmly=1
@@ -186,11 +198,24 @@ class data():
         if xyz==1: dify=dif
         if xyz==2: difz=dif
     global uniqdifN;
+    cofftype_aniso = []
     cofftype = map(lambda np: "*coffS.%s"%'yx'[self.proj==np],(0,1,2)) if self.typus=="S" else ["*coff%s"%self.typus,]*3
+    if self.typus=="S":
+      cofftype_aniso.append( map(lambda xyzw: "*coffS.%s"%xyzw, ("xyy","ywz","yzw")[self.proj]) )
+      cofftype_aniso.append( map(lambda xyzw: "*coffS.%s"%xyzw, ("wyz","yxy","zyw")[self.proj]) )
+      cofftype_aniso.append( map(lambda xyzw: "*coffS.%s"%xyzw, ("wzy","zwy","yyx")[self.proj]) )
+      print "  #ifndef ANISO_TR"
     dtdr_coffs = cofftype if SqGrid else ("*dtdxd24%s"%cofftype[0],"*dtdyd24%s"%cofftype[1],"*dtdzd24%s"%cofftype[2])
-    if (data.Atype!="D" or data.PMLS) and difx: print "  difx[%2d] = (%s)%s;"%(uniqdifN,difx, dtdr_coffs[0]); 
-    if (data.Atype!="D" or data.PMLS) and dify: print "  dify[%2d] = (%s)%s;"%(uniqdifN,dify, dtdr_coffs[1]); 
-    if                                    difz: print "  difz[%2d] = (%s)%s;"%(uniqdifN,difz, dtdr_coffs[2]);
+    if   (data.Atype!="D" or data.PMLS) and difx: print "  difx[%2d] = (%s)%s;"%(uniqdifN,difx, dtdr_coffs[0]); 
+    if   (data.Atype!="D" or data.PMLS) and dify: print "  dify[%2d] = (%s)%s;"%(uniqdifN,dify, dtdr_coffs[1]); 
+    if                                      difz: print "  difz[%2d] = (%s)%s;"%(uniqdifN,difz, dtdr_coffs[2]);
+    for aniso_type in range(len(cofftype_aniso)):
+      print "  #elif ANISO_TR==%d"%(aniso_type+1)
+      cft = cofftype_aniso[aniso_type]; dtdr_coffs = cft if SqGrid else ("*dtdxd24%s"%cft[0],"*dtdyd24%s"%cft[1],"*dtdzd24%s"%cft[2])
+      if (data.Atype!="D" or data.PMLS) and difx: print "  difx[%2d] = (%s)%s;"%(uniqdifN,difx, dtdr_coffs[0]); 
+      if (data.Atype!="D" or data.PMLS) and dify: print "  dify[%2d] = (%s)%s;"%(uniqdifN,dify, dtdr_coffs[1]); 
+      if                                    difz: print "  difz[%2d] = (%s)%s;"%(uniqdifN,difz, dtdr_coffs[2]);
+    if self.typus=="S": print "  #else\n  #error UNKNOWN ANISOTROPY TYPE\n  #endif"
     pmlfields = "Vx,Vy,Vz,Tx,Ty,Tz,Sx,Sy,Sz,Ex,Ey,Ez,Hx,Hy,Hz"
     signx,signy,signz = "+++"
     pmlz = data.inPMLv
@@ -325,7 +350,7 @@ class DiamondTorre():
         if fld.typus=="S" and fld.proj!=0: continue
         hind = fld.fldind-fld.fldindS*2-(fld.proj if fld.typus=="S" else 0)
         if hind%2==0 or hind==49: print "  h[%2d] = modelRag%s->h[%2d][iz];"%(hind/2, "MCP"[1+fld.plsId[0]], hind/2)
-        print "  TEXCOFF%s(%d, %+d, %+d, iz*2%+d, I,h[%2d].%s);"%(fld.typus,hind,fld.coord[0],fld.coord[1],fld.coord[2], hind/2, 'xy'[hind%2])
+        print "  TEXCOFF%s(%d, %+d, %+d, iz*2%+d, I,h[%2d].%s);"%(fld.typus+('','xyz'[fld.proj])[fld.typus=='T'],hind,fld.coord[0],fld.coord[1],fld.coord[2], hind/2, 'xy'[hind%2])
       if data.LargeNV: shrn=-1; print "  __syncthreads();"
       for fld in self.dmds[1+did*2].fields :
         if data.PMLS: print "%s = %s; // "%(fld.name, fld.globname_pair) , fld.coord

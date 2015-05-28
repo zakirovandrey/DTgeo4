@@ -53,6 +53,9 @@ const int Ntime=NTIME;
 #endif
 
 //static_assert(NX>=WX, "Error: NX<=Window size");  // c++11
+#if defined USE_AIVLIB_MODEL && defined COFFS_DEFAULT
+#error AIVLIB_MODEL and COFFS_DEFAULT are defined simultaneously
+#endif
 
 #ifdef MPI_ON
 #include <mpi.h>

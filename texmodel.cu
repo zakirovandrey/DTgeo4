@@ -10,9 +10,11 @@ __constant__ float2 texShift[MAX_TEXS];
 __constant__ float2 texStretchShow;
 __constant__ float2 texShiftShow;
 #ifdef USE_TEX_REFS
-texture<float2, cudaTextureType3D, cudaReadModeElementType> layerRefS;
-texture<float , cudaTextureType3D, cudaReadModeElementType> layerRefV;
-texture<float , cudaTextureType3D, cudaReadModeElementType> layerRefT;
+texture<coffS_t, cudaTextureType3D, cudaReadModeElementType> layerRefS;
+texture<float  , cudaTextureType3D, cudaReadModeElementType> layerRefV;
+texture<float  , cudaTextureType3D, cudaReadModeElementType> layerRefT;
+texture<float  , cudaTextureType3D, cudaReadModeElementType> layerRefTa;
+texture<float  , cudaTextureType3D, cudaReadModeElementType> layerRefTi;
 #endif
 void ModelTexs::init(){
   int node=0, Nprocs=1;
@@ -24,13 +26,15 @@ void ModelTexs::init(){
   ShowTexBinded=0;
   Ntexs=1; // get from aivModel
   if(Ntexs>MAX_TEXS) { printf("Error: Maximum number of texs is reached (%d>%d)\n", Ntexs, MAX_TEXS); exit(-1); }
-  HostLayerS = new float2*[Ntexs]; HostLayerT = new float*[Ntexs]; HostLayerV = new float*[Ntexs];
-  for(int idev=0;idev<NDev;idev++) { DevLayerS[idev] = new cudaArray*[Ntexs]; DevLayerV[idev] = new cudaArray*[Ntexs]; DevLayerT[idev] = new cudaArray*[Ntexs]; }
-  for(int idev=0;idev<NDev;idev++) { layerS_host[idev] = new cudaTextureObject_t[Ntexs]; layerV_host[idev] = new cudaTextureObject_t[Ntexs]; layerT_host[idev] = new cudaTextureObject_t[Ntexs]; }
+  HostLayerS = new coffS_t*[Ntexs]; HostLayerV = new float*[Ntexs]; HostLayerT = new float*[Ntexs]; HostLayerTi = new float*[Ntexs]; HostLayerTa = new float*[Ntexs]; 
+  for(int idev=0;idev<NDev;idev++) { DevLayerS[idev] = new cudaArray*[Ntexs]; DevLayerV[idev] = new cudaArray*[Ntexs]; DevLayerT[idev] = new cudaArray*[Ntexs]; DevLayerTi[idev] = new cudaArray*[Ntexs]; DevLayerTa[idev] = new cudaArray*[Ntexs]; }
+  for(int idev=0;idev<NDev;idev++) { layerS_host[idev] = new cudaTextureObject_t[Ntexs]; layerV_host[idev] = new cudaTextureObject_t[Ntexs]; layerT_host[idev] = new cudaTextureObject_t[Ntexs]; layerTi_host[idev] = new cudaTextureObject_t[Ntexs];  layerTa_host[idev] = new cudaTextureObject_t[Ntexs]; }
   for(int idev=0;idev<NDev;idev++) { CHECK_ERROR( cudaSetDevice(idev) );
-    CHECK_ERROR( cudaMalloc((void**)&layerS[idev], Ntexs*sizeof(cudaTextureObject_t)) ); 
-    CHECK_ERROR( cudaMalloc((void**)&layerV[idev], Ntexs*sizeof(cudaTextureObject_t)) ); 
-    CHECK_ERROR( cudaMalloc((void**)&layerT[idev], Ntexs*sizeof(cudaTextureObject_t)) ); 
+    CHECK_ERROR( cudaMalloc((void**)&layerS [idev], Ntexs*sizeof(cudaTextureObject_t)) ); 
+    CHECK_ERROR( cudaMalloc((void**)&layerV [idev], Ntexs*sizeof(cudaTextureObject_t)) ); 
+    CHECK_ERROR( cudaMalloc((void**)&layerT [idev], Ntexs*sizeof(cudaTextureObject_t)) ); 
+    CHECK_ERROR( cudaMalloc((void**)&layerTi[idev], Ntexs*sizeof(cudaTextureObject_t)) ); 
+    CHECK_ERROR( cudaMalloc((void**)&layerTa[idev], Ntexs*sizeof(cudaTextureObject_t)) ); 
   }
   CHECK_ERROR( cudaSetDevice(0) );
   int Nh=1; unsigned long long texsize_onhost=0, texsize_ondevs=0;
@@ -76,39 +80,74 @@ void ModelTexs::init(){
     CHECK_ERROR( cudaMemcpyToSymbol(texShiftShow  , &texShiftShowHost  , sizeof(float2)*Ntexs, 0, cudaMemcpyHostToDevice) );
   }
   CHECK_ERROR( cudaSetDevice(0) );
-  if(node==0) printf("Textures data on host   : %.3fMB\n", texsize_onhost*(sizeof(float2)+2*sizeof(float))/(1024.*1024.));
-  if(node==0) printf("Textures data on devices: %.3fMB\n", texsize_ondevs*(sizeof(float2)+2*sizeof(float))/(1024.*1024.));
+  if(node==0) printf("Textures data on host   : %.3fMB\n", texsize_onhost*(sizeof(coffS_t)+2*sizeof(float))/(1024.*1024.));
+  if(node==0) printf("Textures data on devices: %.3fMB\n", texsize_ondevs*(sizeof(coffS_t)+2*sizeof(float))/(1024.*1024.));
   cudaChannelFormatDesc channelDesc;
   for(int ind=0; ind<Ntexs; ind++) {
     const int texNx = texN[ind].x, texNy = texN[ind].y, texNh = texN[ind].z;
     int texNwindow = int(ceil(Ns*NDT/texStep[ind])+2);
-    HostLayerS[ind] = new float2[texNx*texNy*texNh]; //get pointer from aivModel
-    HostLayerV[ind] = new float [texNx*texNy*texNh]; //get pointer from aivModel
-    HostLayerT[ind] = new float [texNx*texNy*texNh]; //get pointer from aivModel
+    HostLayerS[ind] = new coffS_t[texNx*texNy*texNh]; //get pointer from aivModel
+    HostLayerV[ind] = new float  [texNx*texNy*texNh]; //get pointer from aivModel
+    #ifndef ANISO_TR
+    HostLayerT[ind]  = new float  [texNx*texNy*texNh]; //get pointer from aivModel
+    #elif ANISO_TR==1 || ANISO_TR==2 || ANISO_TR==3
+    HostLayerTi[ind] = new float  [texNx*texNy*texNh]; //get pointer from aivModel
+    HostLayerTa[ind] = new float  [texNx*texNy*texNh]; //get pointer from aivModel
+    #endif
     for(int idev=0;idev<NDev;idev++) { CHECK_ERROR( cudaSetDevice(idev) ); 
-    channelDesc = cudaCreateChannelDesc<float2>(); CHECK_ERROR( cudaMalloc3DArray(&DevLayerS[idev][ind], &channelDesc, make_cudaExtent(texNy,texNh,texNwindow)) );
-    channelDesc = cudaCreateChannelDesc<float >(); CHECK_ERROR( cudaMalloc3DArray(&DevLayerV[idev][ind], &channelDesc, make_cudaExtent(texNy,texNh,texNwindow)) );
-    channelDesc = cudaCreateChannelDesc<float >(); CHECK_ERROR( cudaMalloc3DArray(&DevLayerT[idev][ind], &channelDesc, make_cudaExtent(texNy,texNh,texNwindow)) );
+    channelDesc = cudaCreateChannelDesc<coffS_t>(); CHECK_ERROR( cudaMalloc3DArray(&DevLayerS[idev][ind], &channelDesc, make_cudaExtent(texNy,texNh,texNwindow)) );
+    channelDesc = cudaCreateChannelDesc<float  >(); CHECK_ERROR( cudaMalloc3DArray(&DevLayerV[idev][ind], &channelDesc, make_cudaExtent(texNy,texNh,texNwindow)) );
+    #ifndef ANISO_TR
+    channelDesc = cudaCreateChannelDesc<float  >(); CHECK_ERROR( cudaMalloc3DArray(&DevLayerT [idev][ind], &channelDesc, make_cudaExtent(texNy,texNh,texNwindow)) );
+    #elif ANISO_TR==1 || ANISO_TR==2 || ANISO_TR==3
+    channelDesc = cudaCreateChannelDesc<float  >(); CHECK_ERROR( cudaMalloc3DArray(&DevLayerTi[idev][ind], &channelDesc, make_cudaExtent(texNy,texNh,texNwindow)) );
+    channelDesc = cudaCreateChannelDesc<float  >(); CHECK_ERROR( cudaMalloc3DArray(&DevLayerTa[idev][ind], &channelDesc, make_cudaExtent(texNy,texNh,texNwindow)) );
+    #endif
     }
     CHECK_ERROR( cudaSetDevice(0) );
     for(int ix=0; ix<texNx; ix++) for(int iy=0; iy<texNy; iy++) for(int ih=0; ih<texNh; ih++) { //or get from aivModel
       // remember about yshift for idev>0
       float Vp=defCoff::Vp, Vs=defCoff::Vs, rho=defCoff::rho, drho=defCoff::drho;
+      ftype C11=Vp*Vp        , C13=Vp*Vp-2*Vs*Vs, C12=Vp*Vp-2*Vs*Vs;
+      ftype C31=Vp*Vp-2*Vs*Vs, C33=Vp*Vp        , C32=Vp*Vp-2*Vs*Vs;
+      ftype C21=Vp*Vp-2*Vs*Vs, C23=Vp*Vp-2*Vs*Vs, C22=Vp*Vp;
+      ftype C44=Vs*Vs, C66=Vs*Vs, C55=Vs*Vs;
       #ifdef USE_AIVLIB_MODEL
       GeoPhysPar p = get_texture_cell(ix,iy,ih); Vp=p.Vp; Vs=p.Vs; rho=p.sigma; drho=1.0/rho;
+      //C11,C12,C13;
+      //C21,C22,C23;
+      //C31,C32,C33;
       #else
       //if(ix<texNx/4)   Vp*= (1.0-0.5)/(texNx/4)*ix+0.5;
       //if(ix>3*texNx/4) Vp*= (0.5-1.0)/(texNx/4)*ix+0.5+4*(1.0-0.5);
       #endif
-      HostLayerS[ind][ix*texNy*texNh+ih*texNy+iy] = make_float2( Vp*Vp, Vp*Vp-2*Vs*Vs )*rho;
       HostLayerV[ind][ix*texNy*texNh+ih*texNy+iy] = drho;
+      #ifndef ANISO_TR
+      HostLayerS[ind][ix*texNy*texNh+ih*texNy+iy] = make_float2( Vp*Vp, Vp*Vp-2*Vs*Vs )*rho;
       HostLayerT[ind][ix*texNy*texNh+ih*texNy+iy] = Vs*Vs*rho;
+      #elif ANISO_TR==1
+      HostLayerS[ind][ix*texNy*texNh+ih*texNy+iy] = make_float4( C11, C12, C23, C22 )*rho;
+      HostLayerTa[ind][ix*texNy*texNh+ih*texNy+iy] = C44*rho;
+      HostLayerTi[ind][ix*texNy*texNh+ih*texNy+iy] = C55*rho;
+      #elif ANISO_TR==2
+      HostLayerS[ind][ix*texNy*texNh+ih*texNy+iy] = make_float4( C22, C12, C13, C11 )*rho;
+      HostLayerTa[ind][ix*texNy*texNh+ih*texNy+iy] = C55*rho;
+      HostLayerTi[ind][ix*texNy*texNh+ih*texNy+iy] = C44*rho;
+      #elif ANISO_TR==3
+      HostLayerS[ind][ix*texNy*texNh+ih*texNy+iy] = make_float4( C33, C13, C12, C11 )*rho;
+      HostLayerTa[ind][ix*texNy*texNh+ih*texNy+iy] = C66*rho;
+      HostLayerTi[ind][ix*texNy*texNh+ih*texNy+iy] = C44*rho;
+      #else
+      #error ANISO_TYPE ANISO_TR not implemented yet
+      #endif
     }
   }
   for(int idev=0;idev<NDev;idev++) { CHECK_ERROR( cudaSetDevice(idev) ); 
-  CHECK_ERROR( cudaMemcpy(layerS[idev], layerS_host[idev], sizeof(cudaTextureObject_t)*Ntexs, cudaMemcpyHostToDevice) );
-  CHECK_ERROR( cudaMemcpy(layerV[idev], layerV_host[idev], sizeof(cudaTextureObject_t)*Ntexs, cudaMemcpyHostToDevice) );
-  CHECK_ERROR( cudaMemcpy(layerT[idev], layerT_host[idev], sizeof(cudaTextureObject_t)*Ntexs, cudaMemcpyHostToDevice) );
+  CHECK_ERROR( cudaMemcpy(layerS [idev], layerS_host [idev], sizeof(cudaTextureObject_t)*Ntexs, cudaMemcpyHostToDevice) );
+  CHECK_ERROR( cudaMemcpy(layerV [idev], layerV_host [idev], sizeof(cudaTextureObject_t)*Ntexs, cudaMemcpyHostToDevice) );
+  CHECK_ERROR( cudaMemcpy(layerT [idev], layerT_host [idev], sizeof(cudaTextureObject_t)*Ntexs, cudaMemcpyHostToDevice) );
+  CHECK_ERROR( cudaMemcpy(layerTi[idev], layerTi_host[idev], sizeof(cudaTextureObject_t)*Ntexs, cudaMemcpyHostToDevice) );
+  CHECK_ERROR( cudaMemcpy(layerTa[idev], layerTa_host[idev], sizeof(cudaTextureObject_t)*Ntexs, cudaMemcpyHostToDevice) );
   }
   CHECK_ERROR( cudaSetDevice(0) );
 
@@ -152,19 +191,26 @@ void ModelTexs::init(){
       }
     }
     #ifdef USE_TEX_REFS
-    layerRefS.addressMode[0] = cudaAddressModeClamp; layerRefV.addressMode[0] = cudaAddressModeClamp; layerRefT.addressMode[0] = cudaAddressModeClamp;
-    layerRefS.addressMode[1] = cudaAddressModeClamp; layerRefV.addressMode[1] = cudaAddressModeClamp; layerRefT.addressMode[1] = cudaAddressModeClamp;
-    layerRefS.addressMode[2] = cudaAddressModeWrap;  layerRefV.addressMode[2] = cudaAddressModeWrap;  layerRefT.addressMode[2] = cudaAddressModeWrap;
-    layerRefS.filterMode = cudaFilterModeLinear; layerRefV.filterMode = cudaFilterModeLinear; layerRefT.filterMode = cudaFilterModeLinear;
-    layerRefS.normalized = true; layerRefV.normalized = true; layerRefT.normalized = true;
-    channelDesc = cudaCreateChannelDesc<float2>(); CHECK_ERROR( cudaBindTextureToArray(layerRefS, DevLayerS[idev][0], channelDesc) );
-    channelDesc = cudaCreateChannelDesc<float >(); CHECK_ERROR( cudaBindTextureToArray(layerRefV, DevLayerV[idev][0], channelDesc) );
-    channelDesc = cudaCreateChannelDesc<float >(); CHECK_ERROR( cudaBindTextureToArray(layerRefT, DevLayerT[idev][0], channelDesc) );
-    #endif
+    layerRefS.addressMode[0] = cudaAddressModeClamp; layerRefV.addressMode[0] = cudaAddressModeClamp; layerRefT.addressMode[0] = cudaAddressModeClamp; layerRefTi.addressMode[0] = cudaAddressModeClamp; layerRefTa.addressMode[0] = cudaAddressModeClamp;
+    layerRefS.addressMode[1] = cudaAddressModeClamp; layerRefV.addressMode[1] = cudaAddressModeClamp; layerRefT.addressMode[1] = cudaAddressModeClamp; layerRefTi.addressMode[1] = cudaAddressModeClamp; layerRefTa.addressMode[1] = cudaAddressModeClamp;
+    layerRefS.addressMode[2] = cudaAddressModeWrap;  layerRefV.addressMode[2] = cudaAddressModeWrap;  layerRefT.addressMode[2] = cudaAddressModeWrap;  layerRefTi.addressMode[2] = cudaAddressModeWrap;  layerRefTa.addressMode[2] = cudaAddressModeWrap;
+    layerRefS.filterMode = cudaFilterModeLinear; layerRefV.filterMode = cudaFilterModeLinear; layerRefT.filterMode = cudaFilterModeLinear;layerRefTi.filterMode = cudaFilterModeLinear;layerRefTa.filterMode = cudaFilterModeLinear;
+    layerRefS.normalized = true; layerRefV.normalized = true; layerRefT.normalized = true; layerRefTi.normalized = true; layerRefTa.normalized = true;
+    channelDesc = cudaCreateChannelDesc<coffS_t>(); CHECK_ERROR( cudaBindTextureToArray(layerRefS , DevLayerS [idev][0], channelDesc) );
+    channelDesc = cudaCreateChannelDesc<float  >(); CHECK_ERROR( cudaBindTextureToArray(layerRefV , DevLayerV [idev][0], channelDesc) );
+    #ifndef ANISO_TR
+    channelDesc = cudaCreateChannelDesc<float  >(); CHECK_ERROR( cudaBindTextureToArray(layerRefT , DevLayerT [idev][0], channelDesc) );
+    #elif ANISO_TR==1 || ANISO_TR==2 || ANISO_TR==3
+    channelDesc = cudaCreateChannelDesc<float  >(); CHECK_ERROR( cudaBindTextureToArray(layerRefTi, DevLayerTi[idev][0], channelDesc) );
+    channelDesc = cudaCreateChannelDesc<float  >(); CHECK_ERROR( cudaBindTextureToArray(layerRefTa, DevLayerTa[idev][0], channelDesc) );
+    #endif//ANISO_TR
+    #endif//USE_TEX_REFS
 
-    CHECK_ERROR( cudaMemcpy(layerS[idev], layerS_host[idev], sizeof(cudaTextureObject_t)*Ntexs, cudaMemcpyHostToDevice) );
-    CHECK_ERROR( cudaMemcpy(layerV[idev], layerV_host[idev], sizeof(cudaTextureObject_t)*Ntexs, cudaMemcpyHostToDevice) );
-    CHECK_ERROR( cudaMemcpy(layerT[idev], layerT_host[idev], sizeof(cudaTextureObject_t)*Ntexs, cudaMemcpyHostToDevice) );
+    CHECK_ERROR( cudaMemcpy(layerS [idev], layerS_host [idev], sizeof(cudaTextureObject_t)*Ntexs, cudaMemcpyHostToDevice) );
+    CHECK_ERROR( cudaMemcpy(layerV [idev], layerV_host [idev], sizeof(cudaTextureObject_t)*Ntexs, cudaMemcpyHostToDevice) );
+    CHECK_ERROR( cudaMemcpy(layerT [idev], layerT_host [idev], sizeof(cudaTextureObject_t)*Ntexs, cudaMemcpyHostToDevice) );
+    CHECK_ERROR( cudaMemcpy(layerTi[idev], layerTi_host[idev], sizeof(cudaTextureObject_t)*Ntexs, cudaMemcpyHostToDevice) );
+    CHECK_ERROR( cudaMemcpy(layerTa[idev], layerTa_host[idev], sizeof(cudaTextureObject_t)*Ntexs, cudaMemcpyHostToDevice) );
   }
   CHECK_ERROR(cudaSetDevice(0));
 
@@ -190,18 +236,31 @@ void ModelTexs::copyTexs(const int xdev, const int xhost, cudaStream_t& streamCo
       const int texNz = texN[ind].y, texNy = texN[ind].z;
       cudaMemcpy3DParms copyparms={0}; copyparms.srcPos=make_cudaPos(0,0,loadX); copyparms.dstPos=make_cudaPos(0,0,storeX);
       copyparms.kind=cudaMemcpyHostToDevice;
-      copyparms.srcPtr = make_cudaPitchedPtr(&HostLayerS[ind][0], texNz*sizeof(float2), texNz, texNy);
+      copyparms.srcPtr = make_cudaPitchedPtr(&HostLayerS[ind][0], texNz*sizeof(coffS_t), texNz, texNy);
       copyparms.dstArray = DevLayerS[idev][ind];
       copyparms.extent = make_cudaExtent(texNz,texNy,numX);
       CHECK_ERROR( cudaMemcpy3DAsync(&copyparms, streamCopy) );
-      copyparms.srcPtr = make_cudaPitchedPtr(&HostLayerV[ind][0], texNz*sizeof(float ), texNz, texNy);
+      copyparms.srcPtr = make_cudaPitchedPtr(&HostLayerV[ind][0], texNz*sizeof(float  ), texNz, texNy);
       copyparms.dstArray = DevLayerV[idev][ind];
       copyparms.extent = make_cudaExtent(texNz,texNy,numX);
       CHECK_ERROR( cudaMemcpy3DAsync(&copyparms, streamCopy) );
-      copyparms.srcPtr = make_cudaPitchedPtr(&HostLayerT[ind][0], texNz*sizeof(float ), texNz, texNy);
+      #ifndef ANISO_TR
+      copyparms.srcPtr = make_cudaPitchedPtr(&HostLayerT[ind][0], texNz*sizeof(float  ), texNz, texNy);
       copyparms.dstArray = DevLayerT[idev][ind];
       copyparms.extent = make_cudaExtent(texNz,texNy,numX);
       CHECK_ERROR( cudaMemcpy3DAsync(&copyparms, streamCopy) );
+      #elif ANISO_TR==1 || ANISO_TR==2 || ANISO_TR==3
+      copyparms.srcPtr = make_cudaPitchedPtr(&HostLayerTi[ind][0],texNz*sizeof(float  ), texNz, texNy);
+      copyparms.dstArray = DevLayerTi[idev][ind];
+      copyparms.extent = make_cudaExtent(texNz,texNy,numX);
+      CHECK_ERROR( cudaMemcpy3DAsync(&copyparms, streamCopy) );
+      copyparms.srcPtr = make_cudaPitchedPtr(&HostLayerTa[ind][0],texNz*sizeof(float  ), texNz, texNy);
+      copyparms.dstArray = DevLayerTa[idev][ind];
+      copyparms.extent = make_cudaExtent(texNz,texNy,numX);
+      CHECK_ERROR( cudaMemcpy3DAsync(&copyparms, streamCopy) );
+      #else
+      #error UNKNOWN ANISO_TYPE
+      #endif
     }
   }
   CHECK_ERROR(cudaSetDevice(0));

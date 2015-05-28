@@ -1,4 +1,4 @@
-#ARCH ?= #k100#geocluster #gpupc1
+#ARCH ?= #k100#geocluster #gpupc1 #D
 USE_AIVLIB_MODEL ?= 1
 #MPI_ON ?= 1
 
@@ -14,7 +14,7 @@ endif
 #NVCC := /home/zakirov/progs/cuda-7.0/bin/nvcc -ccbin $(GCC)
 
 ifeq ($(ARCH),k100)
-NVCC := /common/cuda-6.5/bin/nvcc -ccbin $(GCC) -O3 
+NVCC := /common/cuda-6.5/bin/nvcc -ccbin $(GCC) -O3 -G -g 
 GENCODE_SM := -arch=sm_20
 else ifeq ($(ARCH),geocluster)
 NVCC := nvcc -ccbin $(GCC) -O3
@@ -23,7 +23,7 @@ else ifeq ($(ARCH),gpupc1)
 NVCC := nvcc -ccbin $(GCC) -O3
 GENCODE_SM := -arch=sm_35
 else ifeq ($(ARCH),D)
-NVCC := nvcc -ccbin $(GCC) -O3
+NVCC := nvcc -ccbin $(GCC) -O3 
 GENCODE_SM := -arch=sm_35
 else
 NVCC := nvcc -ccbin $(GCC) -O3

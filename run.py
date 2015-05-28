@@ -71,12 +71,13 @@ print "Phys_params at shotpoint %g %g %g\n"%(SM.Vp,SM.Vs,SM.sigma)
 
 SS = DTgeo.cvar.shotpoint
 SS.F0=0.03;
-SS.gauss_waist=0.2;
+SS.gauss_waist=0.5;
 SS.Ampl=0.0;
 SS.srcXs, SS.srcXv, SS.srcXa = SrcCoords_LOC[0],SrcCoords_LOC[1],SrcCoords_LOC[2];
 SS.BoxMs, SS.BoxPs = SS.srcXs-4.1*dx, SS.srcXs+4.1*dx; 
 SS.BoxMa, SS.BoxPa = SS.srcXa-4.1*dz, SS.srcXa+4.1*dz; 
 SS.BoxMv, SS.BoxPv = SS.srcXv-5.1*dy, SS.srcXv+5.1*dy; 
+SS.sphR = 50-2*dz; SS.BoxMs, SS.BoxPs = SS.srcXs-SS.sphR, SS.srcXs+SS.sphR;
 boxDiagLength=sqrt((SS.BoxPs-SS.BoxMs)**2+(SS.BoxPa-SS.BoxMa)**2+(SS.BoxMv-SS.BoxPv)**2)
 SS.tStop = boxDiagLength/2/min(SM.Vp,0.0001+SM.Vs)+8/(pi*SS.F0)+10*dt # 5000*dt; # ((BoxPs-BoxMs)+(BoxPa-BoxMa)+(BoxMv-BoxPv))/c+2*M_PI/Omega;
 SS.V_max = 7.0;

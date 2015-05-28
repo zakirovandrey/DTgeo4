@@ -127,7 +127,9 @@ __device__ __noinline__ bool inSF(const int _s, const int _a, const int _v) {
 //  if(_v==128 && _a==10) printf("checking inSF _s=%d|%d reals=%d|%d\n", _s, _s/(2*NDT), reals, reals/(2*NDT));
   float s = reals*0.5*dx, a=_a*0.5*dy, v=_v*0.5*dz;
 //  if(_v==128) printf("checking inSF s/dx/NDT=%d\n", int(s/dx/NDT));
-  return (s>src.BoxMs && s<src.BoxPs && a>src.BoxMa && a<src.BoxPa && v>src.BoxMv && v<src.BoxPv); 
+
+  return (s-src.srcXs)*(s-src.srcXs)+(a-src.srcXa)*(a-src.srcXa)+(v-src.srcXv)*(v-src.srcXv)<=src.sphR*src.sphR;
+//  return (s>src.BoxMs && s<src.BoxPs && a>src.BoxMa && a<src.BoxPa && v>src.BoxMv && v<src.BoxPv); 
 }
 
 
@@ -164,7 +166,6 @@ __device__ __noinline__ float SrcSurf_Vy(const int s, const int v, const int a, 
         (1-2*M_PI*M_PI*src.F0*src.F0*(arg-Th*0.5)*(arg-Th*0.5))*__expf(-M_PI*M_PI*src.F0*src.F0*(arg-Th*0.5)*(arg-Th*0.5));
        //  else return EnvelopeR(x,y)*( sqrt((r0*r0+Rh*Rh)/(r1*r1+Rh*Rh))*r1/r0*Boom(x,y,r0,(it-0.5)*dt-delay,false) - Boom(x,y,r1,(it-0.5)*dt,false) )/Rho;
 }
-
 
 #undef S
 #endif

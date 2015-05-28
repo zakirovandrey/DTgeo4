@@ -56,10 +56,26 @@ __device__ __forceinline__ static bool inPMLsync(const int x) { return (x<Npmlx/
 #define TEXCOFFS(nind,xt,yt,z,I,h) ArrcoffS[nind] = tex3D<float2>(pars.texs.TexlayerS[curDev], h*texStretchH, (z)*texStretchY, GLOBAL(xt)*texStretch[0]); /*if(threadIdx.x==Nz/2) printf("coffS(%d %d %d)=%g,%g\n", xt,z,h, coffS.x, coffS.y);*/
 #endif
 #ifdef USE_TEX_REFS
-#define TEXCOFFV(nind,xt,yt,z,I,h) ArrcoffV[nind] = tex3D(layerRefV, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x); /*if(threadIdx.x==Nz/2) printf("coffV(%d %d %d)=%g\n", xt,z,h, coffV);*/
-#define TEXCOFFT(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D(layerRefT, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x); /*if(threadIdx.x==Nz/2) printf("coffT(%d %d %d)=%g\n", xt,z,h, coffT);*/
-#define TEXCOFFS(nind,xt,yt,z,I,h) ArrcoffS[nind] = tex3D(layerRefS, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x); /*if(threadIdx.x==Nz/2) printf("coffS(%d %d %d)=%g,%g\n", xt,z,h, coffS.x, coffS.y);*/
-#endif
+#define TEXCOFFS(nind,xt,yt,z,I,h)  ArrcoffS[nind] = tex3D(layerRefS, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x); /*if(threadIdx.x==Nz/2) printf("coffS(%d %d %d)=%g,%g\n", xt,z,h, coffS.x, coffS.y);*/
+#define TEXCOFFV(nind,xt,yt,z,I,h)  ArrcoffV[nind] = tex3D(layerRefV, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x); /*if(threadIdx.x==Nz/2) printf("coffV(%d %d %d)=%g\n", xt,z,h, coffV);*/
+#ifndef ANISO_TR
+#define TEXCOFFTx(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D(layerRefT, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x);
+#define TEXCOFFTy(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D(layerRefT, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x);
+#define TEXCOFFTz(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D(layerRefT, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x);
+#elif ANISO_TR==1
+#define TEXCOFFTx(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D(layerRefTa, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x);
+#define TEXCOFFTy(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D(layerRefTi, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x);
+#define TEXCOFFTz(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D(layerRefTi, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x);
+#elif ANISO_TR==2
+#define TEXCOFFTx(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D(layerRefTi, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x);
+#define TEXCOFFTy(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D(layerRefTa, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x);
+#define TEXCOFFTz(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D(layerRefTi, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x);
+#elif ANISO_TR==3
+#define TEXCOFFTx(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D(layerRefTi, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x);
+#define TEXCOFFTy(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D(layerRefTi, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x);
+#define TEXCOFFTz(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D(layerRefTa, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x);
+#endif//ANISO_TR
+#endif//USE_TEX_REFS
 //#define TEXCOFFV(xt,yt,z,I,h) coffV = tex3D<float >(pars.texs.TexlayerV[curDev], h*texStretchH, (z)*texStretchY, GLOBAL(xt)*texStretch[0]); /*if(threadIdx.x==Nz/2) printf("coffV(%d %d %d)=%g\n", xt,z,h, coffV);*/
 //#define TEXCOFFT(xt,yt,z,I,h) coffT = tex3D<float >(pars.texs.TexlayerT[curDev], h*texStretchH, (z)*texStretchY, GLOBAL(xt)*texStretch[0]); /*if(threadIdx.x==Nz/2) printf("coffT(%d %d %d)=%g\n", xt,z,h, coffT);*/
 //#define TEXCOFFS(xt,yt,z,I,h) coffS = tex3D<float2>(pars.texs.TexlayerS[curDev], h*texStretchH, (z)*texStretchY, GLOBAL(xt)*texStretch[0]); /*if(threadIdx.x==Nz/2) printf("coffS(%d %d %d)=%g,%g\n", xt,z,h, coffS.x, coffS.y);*/
@@ -113,9 +129,9 @@ extern __shared__ ftype2 shared_fld[14][Nv];
   const int Kpml_iy=get_pml_iy(iy)*NDT*2+NDT-1; int Kpml_ix=0;\
   int it=t0; ftype difx[100],dify[100],difz[100]; ftype zerov=0.;\
   register ftype  coffV = defCoff::drho*dtdrd24, coffT=defCoff::Vs*defCoff::Vs*defCoff::rho*dtdrd24; \
-  register ftype2 coffS=make_ftype2( defCoff::Vp*defCoff::Vp, defCoff::Vp*defCoff::Vp-2*defCoff::Vs*defCoff::Vs )*defCoff::rho*dtdrd24;\
+  register coffS_t coffS = DEF_COFF_S;\
   register ftype ArrcoffV[100], ArrcoffT[100];\
-  register ftype2 ArrcoffS[100];\
+  register coffS_t ArrcoffS[100];\
   int I; register htype h[100];\
   ftype2 regPml; ftype regPml2; \
   ftype2 reg_fldV[250], reg_fldS[250]; ftype reg_R;\

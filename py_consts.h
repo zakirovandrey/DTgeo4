@@ -5,6 +5,17 @@ typedef float ftype;
 #define gridNy 256
 #define gridNz 600
 
+#define ANISO_TR 2
+
+#define NDev 2
+
+#define USE_AIVLIB_MODEL
+//#define MPI_ON
+//#define TEST_RATE
+#define USE_WINDOW
+//#define COFFS_DEFAULT
+//#define CLICK_BOOM
+
 #ifndef NS
 #define NS 125
 const int Np=gridNx/3;
@@ -24,17 +35,8 @@ const int GridNz=gridNz;
 const int GridNz=3*NA;
 #endif
 
-#define NDev 2
-
-//#define USE_AIVLIB_MODEL
-//#define MPI_ON
-//#define TEST_RATE
-#define USE_WINDOW
-//#define COFFS_DEFAULT
-//#define CLICK_BOOM
-
 const int Npmlx=2*5;//2*24;
-const int Npmly=15;//24;
+const int Npmly=5;//24;
 const int Npmlz=2*16;//128;
 
 const ftype ds=25./3, da=25./3, dv=25./3, dt=0.5;
@@ -49,6 +51,7 @@ extern struct TFSFsrc{
   ftype BoxMs, BoxPs; 
   ftype BoxMa, BoxPa; 
   ftype BoxMv, BoxPv;
+  ftype sphR;
   ftype V_max;
   int start;
   //----------surface source parameters-----------//
