@@ -13,7 +13,7 @@ dy=DTgeo.cvar.dv
 dz=DTgeo.cvar.da
 dt=DTgeo.cvar.dt
 
-SrcCoords_LOC  = [ GridNx/2*dx, GridNy/2*dy, 50]
+SrcCoords_LOC  = [ GridNx/2*dx+0.5*dx, GridNy/2*dy+0.5*dy, 50]
 
 class SM: pass
 SM.Vp=3.0; SM.Vs=1.5; SM.sigma=2.0 # the same as defCoff in texmodel.cuh

@@ -62,7 +62,7 @@ P.main_plast = False
 
 print 'load OK'
 
-SrcCoords_LOC  = [ GridNx/2*dx, GridNy/2*dy, 6*dz]
+SrcCoords_LOC  = [ GridNx/2*dx+0.5*dx, GridNy/2*dy+0.5*dy, 6*dz]
 SrcCoords_GLOB = [ (Xmax+Xmin)/2., (Ymax+Ymin)/2., 0 ]
 
 boom = SM.get_par(SrcCoords_GLOB[0], SrcCoords_GLOB[1], SrcCoords_GLOB[2])

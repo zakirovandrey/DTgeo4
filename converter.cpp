@@ -12,8 +12,8 @@
 
 using namespace aiv;
 const int tSkip=4;
-const int Nt = 16000;
-const int xStep=3, yStep=1;
+const int Nt = 4000;
+const int xStep=1, yStep=6, yShift=2;
 int Nx,Nw; 
 float t,x1,x2;
 int main(int argc, char** argv){
@@ -51,7 +51,7 @@ int main(int argc, char** argv){
           if(int(t)%tSkip!=0) continue;
           if(int(t/tSkip)>=Nt/tSkip)  { continue; printf("Nt exceeded\n"); /*exit(-1);*/ }
           //printf("ix=%d v=%d, tt=%d\n",(ix+Nx)%Nx,iwarp*32+ith, int(t/tSkip));
-          arr[Indx((ix/xStep+Nx/xStep)%(Nx/xStep),(iwarp*32+ith)/yStep,int(t/tSkip))] = val;
+          arr[Indx((ix/xStep+Nx/xStep)%(Nx/xStep),(iwarp*32+ith+yShift)/yStep,int(t/tSkip))] = val;
         }
       }
     }

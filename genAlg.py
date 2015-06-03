@@ -242,8 +242,11 @@ class data():
 
     if data.Atype[0]=='I' and not isOutA(self.coord[1], data.Atype) and isOutA(self.coord[1]-2, data.Atype):
       print "  %s+= SrcSurf_%s%s(glob_ix*2*NDT+(%g), iz*2+(%g), %g+iy*2*NDT, pars.iStep*Ntime+it+%g);"%(self.name, self.typus,'xyz'[self.proj], self.coord[0], self.coord[2], self.coord[1], time)
-      print "  dropPP(ix*NDT%+d, %d-chunk%s[0], iz, it, channel%s, %s);"%(
-          self.coord[0]/2, self.coord[0]/2, self.typus+('xyz'[self.proj] if self.typus!='S' else 'i'), self.typus+'xyz'[self.proj], self.name)
+      if self.typus!="V": print "  #ifndef DROP_ONLY_V"
+      interpolate=1 if self.typus=="V" and self.proj==2 else 0
+      print "  dropPP(ix*NDT%+d, %d-chunk%s[0], iz, it, channel%s, %s, %d);"%(
+          self.coord[0]/2, self.coord[0]/2, self.typus+('xyz'[self.proj] if self.typus!='S' else 'i'), self.typus+'xyz'[self.proj], self.name, interpolate)
+      if self.typus!="V": print "  #endif// DROP_ONLY_V"
     uniqdifN+= 1
 
 class Plaster():

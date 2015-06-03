@@ -1,5 +1,5 @@
 #ARCH ?= #k100#geocluster #gpupc1 #D
-USE_AIVLIB_MODEL ?= 1
+#USE_AIVLIB_MODEL ?= 1
 #MPI_ON ?= 1
 
 ifdef MPI_ON

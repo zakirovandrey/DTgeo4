@@ -117,8 +117,13 @@ struct __align__(16) ftype8 { ftype4 u, v; };
 //extern __shared__ ftypr2 shared_fld[2][7][Nv];
 //extern __shared__ ftype2 shared_fld[(FTYPESIZE*Nv*28>0xc000)?7:14][Nv];
 extern __shared__ ftype2 shared_fld[14][Nv];
+#ifdef DROP_ONLY_V
+#define DEC_CHUNKS_0 const int chunkSi[]={0,0}, chunkTx[]={0,0}, chunkTy[]={0,0}, chunkTz[]={0,0}, chunkVx[]={2,4}, chunkVy[]={1,4}, chunkVz[]={2,4};
+#define DEC_CHUNKS_1 const int chunkSi[]={0,0}, chunkTx[]={0,0}, chunkTy[]={0,0}, chunkTz[]={0,0}, chunkVx[]={1,2}, chunkVy[]={0,0}, chunkVz[]={1,2};
+#else 
 #define DEC_CHUNKS_0 const int chunkSi[]={ 0,2}, chunkTx[]={0,3}, chunkTy[]={1,3}, chunkTz[]={0,3}, chunkVx[]={2,4}, chunkVy[]={1,4}, chunkVz[]={2,4};
 #define DEC_CHUNKS_1 const int chunkSi[]={-1,0}, chunkTx[]={0,0}, chunkTy[]={0,1}, chunkTz[]={0,0}, chunkVx[]={1,2}, chunkVy[]={0,0}, chunkVz[]={1,2};
+#endif
 #define REG_DEC(EVENTYPE) \
   const int iy=y0+blockIdx.x;\
   const bool inPMLv = (threadIdx.x<Npmlz);\
@@ -143,9 +148,9 @@ extern __shared__ ftype2 shared_fld[14][Nv];
 \
   int glob_ix = (ix+pars.GPUx0+NS-pars.wleft)%NS+pars.wleft;\
   DEC_CHUNKS_##EVENTYPE;\
-  ftype* channelSx = pars.drop.channelAddr[0], *channelSy = pars.drop.channelAddr[1], *channelSz = pars.drop.channelAddr[2],\
-        *channelTx = pars.drop.channelAddr[3], *channelTy = pars.drop.channelAddr[4], *channelTz = pars.drop.channelAddr[5],\
-        *channelVx = pars.drop.channelAddr[6], *channelVy = pars.drop.channelAddr[7], *channelVz = pars.drop.channelAddr[8];\
+  ftype *channelVx = pars.drop.channelAddr[0], *channelVy = pars.drop.channelAddr[1], *channelVz = pars.drop.channelAddr[2],\
+        *channelSx = pars.drop.channelAddr[3], *channelSy = pars.drop.channelAddr[4], *channelSz = pars.drop.channelAddr[5],\
+        *channelTx = pars.drop.channelAddr[6], *channelTy = pars.drop.channelAddr[7], *channelTz = pars.drop.channelAddr[8];\
   int ymC=0,ymM=0,ymP=0;\
   const int idevC=get_idev(iy  ,ymC); \
   const int idevM=get_idev(iy-1,ymM); \
@@ -195,7 +200,7 @@ extern __shared__ ftype2 shared_fld[14][Nv];
 #define RPOINT_CHUNK_HEAD\
   if(threadIdx.x==blockDim.x-1) {\
   if(pars.iStep>0) {\
-    for(int ich=0;ich<9;ich++) if(pars.drop.channelAddr[ich]+3+3>=pars.drop.channel[ich]+pars.drop.channelDevLength) {\
+    for(int ich=0;ich<NDRP;ich++) if(pars.drop.channelAddr[ich]+3+3>=pars.drop.channel[ich]+pars.drop.channelDevLength) {\
       printf("Error: Length of Device channel %d is exceeded (to fix increase channelDevLength value)\n", ich); return; } }\
   if(chunkSi[1]-chunkSi[0]>0) { channelSx[0]=ftype(pars.iStep*Ntime+it); channelSx[1]=ftype(glob_ix*NDT+chunkSi[0]); channelSx[2]=ftype(glob_ix*NDT+chunkSi[1]); }\
   if(chunkSi[1]-chunkSi[0]>0) { channelSy[0]=ftype(pars.iStep*Ntime+it); channelSy[1]=ftype(glob_ix*NDT+chunkSi[0]); channelSy[2]=ftype(glob_ix*NDT+chunkSi[1]); }\
@@ -222,9 +227,9 @@ extern __shared__ ftype2 shared_fld[14][Nv];
   for(int xdrop=chunkVy[0]; xdrop<chunkVy[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelVy+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
   for(int xdrop=chunkVz[0]; xdrop<chunkVz[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelVz+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
   if(threadIdx.x==blockDim.x-1) {\
-  pars.drop.channelAddr[0]=channelSx; pars.drop.channelAddr[1]=channelSy; pars.drop.channelAddr[2]=channelSz;\
-  pars.drop.channelAddr[3]=channelTx; pars.drop.channelAddr[4]=channelTy; pars.drop.channelAddr[5]=channelTz;\
-  pars.drop.channelAddr[6]=channelVx; pars.drop.channelAddr[7]=channelVy; pars.drop.channelAddr[8]=channelVz;\
+  pars.drop.channelAddr[0]=channelVx; pars.drop.channelAddr[1]=channelVy; pars.drop.channelAddr[2]=channelVz;\
+  pars.drop.channelAddr[3]=channelSx; pars.drop.channelAddr[4]=channelSy; pars.drop.channelAddr[5]=channelSz;\
+  pars.drop.channelAddr[6]=channelTx; pars.drop.channelAddr[7]=channelTy; pars.drop.channelAddr[8]=channelTz;\
   /*printf("addreses %p  %p\n", pars.drop.channel[0], channelSx);*/\
   /*for(int inch=0; inch<channelSx-pars.drop.channel[0]; inch++) printf("inch=%d val=%g\n", inch, pars.drop.channel[0][inch]);*/\
   }\

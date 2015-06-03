@@ -5,16 +5,18 @@ typedef float ftype;
 #define gridNy 256
 #define gridNz 600
 
-#define ANISO_TR 2
+//#define ANISO_TR 2
 
 #define NDev 2
 
-#define USE_AIVLIB_MODEL
+//#define USE_AIVLIB_MODEL
 //#define MPI_ON
 //#define TEST_RATE
 #define USE_WINDOW
 //#define COFFS_DEFAULT
 //#define CLICK_BOOM
+
+#define DROP_ONLY_V
 
 #ifndef NS
 #define NS 125
