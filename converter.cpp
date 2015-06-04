@@ -13,7 +13,7 @@
 using namespace aiv;
 const int tSkip=4;
 const int Nt = 4000;
-const int xStep=1, yStep=6, yShift=2;
+const int xStep=3, yStep=1, yShift=0;
 int Nx,Nw; 
 float t,x1,x2;
 int main(int argc, char** argv){
@@ -33,7 +33,7 @@ int main(int argc, char** argv){
     if( fread(drop_cells, sizeof(uint32_t), Nx*Nw, fraw)!=Nx*Nw ) perror("drop_cells Reading error\n");
 
     array<float,3> arr; 
-    indx<3> nc; nc[0]=Nx/xStep; nc[1]=Nw*32/yStep; nc[2]=Nt/tSkip; arr.init(nc);
+    indx<3> nc; nc[0]=Nt/tSkip; nc[1]=Nw*32/yStep; nc[2]=Nx/xStep; arr.init(nc);
     printf("x,y,z=%d %d %d\n", nc[0], nc[1], nc[2]);
     for(int z=0;z<nc[2];z++) for(int y=0;y<nc[1];y++) for(int x=0;x<nc[0];x++) arr[Indx(x,y,z)] = 0;
     printf("ok\n");
@@ -51,7 +51,7 @@ int main(int argc, char** argv){
           if(int(t)%tSkip!=0) continue;
           if(int(t/tSkip)>=Nt/tSkip)  { continue; printf("Nt exceeded\n"); /*exit(-1);*/ }
           //printf("ix=%d v=%d, tt=%d\n",(ix+Nx)%Nx,iwarp*32+ith, int(t/tSkip));
-          arr[Indx((ix/xStep+Nx/xStep)%(Nx/xStep),(iwarp*32+ith+yShift)/yStep,int(t/tSkip))] = val;
+          arr[Indx(int(t/tSkip),(iwarp*32+ith+yShift)/yStep,(ix/xStep+Nx/xStep)%(Nx/xStep))] = val;
         }
       }
     }

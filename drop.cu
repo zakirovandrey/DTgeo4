@@ -35,14 +35,11 @@ struct SeismoDrops {
     //     ____!!!___first warp is for PML___!!!___   NOPE, IT IS WRONG?? CHECK LATER
     //for(int ix=0; ix<NDT*Np; ix++) {drop_cellsHost[ix*Nwarps+Nz/32/2]=1/*65*/; drop_cellsHost[ix*Nwarps+Nz/32/2-1]=1; drop_cellsHost[ix*Nwarps+Nz/32/2+1]=1;}
     #if 1 
-    for(int ix=0; ix<NDT*Np; ix+=1) for(int sline=0; sline<Nz/2-Npmlz/2; sline+=6) {
+    for(int ix=0; ix<NDT*Np; ix+=3) for(int sline=0; sline<Nz/2-Npmlz/2; sline+=6) {
       int line=Nz/2+sline; int th_id=line; drop_cellsHost[ix*Nwarps+(th_id)/32]|=((uint64_t)1)<<(th_id%32); 
           line=Nz/2-sline;     th_id=line; drop_cellsHost[ix*Nwarps+(th_id)/32]|=((uint64_t)1)<<(th_id%32);
     } 
     for(int iw=0; iw<Nwarps; iw++) drop_cellsHost[ Np*NDT/2   *Nwarps+iw]=(((uint64_t)1)<<32)-1;
-    for(int iw=0; iw<Nwarps; iw++) drop_cellsHost[(Np*NDT/2+1)*Nwarps+iw]=(((uint64_t)1)<<32)-1;
-    for(int iw=0; iw<Nwarps; iw++) drop_cellsHost[(Np*NDT/2-1)*Nwarps+iw]=(((uint64_t)1)<<32)-1;
-    for(int iw=0; iw<Nwarps; iw++) drop_cellsHost[(Np*NDT/2+2)*Nwarps+iw]=(((uint64_t)1)<<32)-1;
     #endif
     
     //CHECK_ERROR( cudaMalloc((void**)&drop_cells, sizeof(uint32_t)*Np*Nwarps) );

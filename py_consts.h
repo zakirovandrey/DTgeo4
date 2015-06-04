@@ -23,7 +23,7 @@ typedef float ftype;
 const int Np=gridNx/3;
 const int GridNx=gridNx;
 #else
-const int Np=NS*10;
+const int Np=NS*5;
 const int GridNx=3*Np;
 #endif
 #ifndef NA
