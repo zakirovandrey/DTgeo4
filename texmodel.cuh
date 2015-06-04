@@ -72,7 +72,7 @@ struct ModelTexs{
 #include "signal.h"
 namespace defCoff {
 //  const float Vp=TFSF::Vp_, Vs=TFSF::Vs_, rho=TFSF::Rho,drho=TFSF::dRho;
-  const float Vp=3.0, Vs=1.5, rho=2.0,drho=1/rho;
+  const float Vp=2.6, Vs=1.5, rho=2.3,drho=1/rho;
   const ftype C11 = Vp*Vp        , C12 = Vp*Vp-2*Vs*Vs, C13 = Vp*Vp-2*Vs*Vs;
   const ftype C21 = Vp*Vp-2*Vs*Vs, C22 = Vp*Vp        , C23 = Vp*Vp-2*Vs*Vs;
   const ftype C31 = Vp*Vp-2*Vs*Vs, C32 = Vp*Vp-2*Vs*Vs, C33 = Vp*Vp;

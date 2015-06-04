@@ -16,6 +16,11 @@ TFSFsrc shotpoint;
 
 void TFSFsrc::set(const double _Vp, const double _Vs, const double _Rho) {
     Vp = _Vp; Vs = _Vs; Rho=_Rho;
+    #ifndef USE_AIVLIB_MODEL
+    if(Vp !=defCoff::Vp)  { printf("Source Vp  != default Coeffs Vp\n" ); exit(-1); }
+    if(Vs !=defCoff::Vs)  { printf("Source Vs  != default Coeffs Vs\n" ); exit(-1); }
+    if(Rho!=defCoff::rho) { printf("Source Rho != default Coeffs Rho\n"); exit(-1); }
+    #endif//USE_AIVLIB_MODEL
     kappa = _Vp*_Vp*_Rho; lambda=(_Vp*_Vp-2*_Vs*_Vs)*_Rho; mu=_Vs*_Vs*_Rho; r0src=0; dvp=1./_Vp;
     dRho=1.0/_Rho;
     
