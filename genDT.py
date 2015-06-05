@@ -12,8 +12,8 @@ gen.AsyncType='D'
 #gen.make_DTorre(typus=0, vpml=0, atype='D', spml=0, LargeNV=1); exit(0)
 #for Yt in itertools.product("DSB", repeat=3):
 #for Yt in ('D','S','DS','SD','Ic','Ib','Xc','Xb','DD','TFSFts','TFSFst'):
-#for Yt in ('D','S','I','X','TFSF','ITFSF'):
-for Yt in ('I','ITFSF'):
+for Yt in ('D','S','I','X','TFSF','ITFSF'):
+#for Yt in ('I','ITFSF'):
   for spml in 0,1:
     gen.PMLS=spml
     fl = open("ker%s%s.inc.cu"%(Yt,("","_pmls")[spml]), 'w')
