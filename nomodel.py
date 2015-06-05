@@ -28,7 +28,7 @@ SS.BoxMa, SS.BoxPa = SS.srcXa-4.1*dz, SS.srcXa+4.1*dz;
 SS.BoxMv, SS.BoxPv = SS.srcXv-4.1*dy, SS.srcXv+4.1*dy;
 SS.sphR = 50-2.0*dz; SS.BoxMs, SS.BoxPs = SS.srcXs-SS.sphR-dx, SS.srcXs+SS.sphR+dx;
 boxDiagLength=sqrt((SS.BoxPs-SS.BoxMs)**2+(SS.BoxPa-SS.BoxMa)**2+(SS.BoxMv-SS.BoxPv)**2)
-SS.tStop = 5000*dt#boxDiagLength/2/min(SM.Vp,0.0001+SM.Vs)+8/(pi*SS.F0)+10*dt # 5000*dt; # ((BoxPs-BoxMs)+(BoxPa-BoxMa)+(BoxMv-BoxPv))/c+2*M_PI/Omega;
+SS.tStop = boxDiagLength/2/min(SM.Vp,0.0001+SM.Vs)+8/(pi*SS.F0)+10*dt # 5000*dt; # ((BoxPs-BoxMs)+(BoxPa-BoxMa)+(BoxMv-BoxPv))/c+2*M_PI/Omega;
 SS.V_max = 7.0;
 
 SS.set(SM.Vp, SM.Vs, SM.sigma)
