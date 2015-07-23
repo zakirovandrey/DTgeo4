@@ -137,9 +137,9 @@ __global__ void mxw_draw(float* buf) {
       case 8 : if(idom%2==1) { pbuf+=0    ; MXW_DRAW_ANY(p->Vi[idom/2].trifld.two[iz].y); } break; //Vz
       case 9 : if(idom%2==0) { pbuf+=0    ; MXW_DRAW_ANY(d3*(p->Si[idom/2].duofld[0][iz].x+p->Si[idom/2].duofld[0][iz].y+p->Si[idom/2].duofld[1][iz].x)); } break; //Inv1
       case 10: if(idom%2==0) { pbuf+=0    ; ftype Sx = p->Si[idom/2].duofld[0][iz].x; ftype Sy = p->Si[idom/2].duofld[0][iz].y; ftype Sz = p->Si[idom/2].duofld[1][iz].x; atomicAdd(pbuf, Sx*Sy+Sx*Sz+Sy*Sz); }
-               if(idom%2==1) { pbuf+=0    ; ftype Tx = p->Si[idom/2].duofld[2][iz].y; atomicAdd(pbuf,-Tx*Tx); } 
-               if(idom%2==0) { pbuf+=NT*Ny; ftype Ty = p->Si[idom/2].duofld[1][iz].y; atomicAdd(pbuf,-Ty*Ty); } 
-               if(idom%2==1) { pbuf+=0    ; ftype Tz = p->Si[idom/2].duofld[2][iz].x; atomicAdd(pbuf,-Tz*Tz); } break; //inv2
+               if(idom%2==1) { pbuf+=0    ; ftype Tx = p->Si[idom/2].duofld[2][iz].y; atomicAdd(pbuf,-0.25*Tx*Tx);if(iz  <Nz-1)atomicAdd(pbuf+1 ,-0.25*Tx*Tx);if(iy/2<Ny-1)atomicAdd(pbuf+NT   ,-0.25*Tx*Tx);if(iz  <Nz-1 && iy/2<Ny-1)atomicAdd(pbuf+NT   +1 ,-0.25*Tx*Tx); } 
+               if(idom%2==0) { pbuf+=NT*Ny; ftype Ty = p->Si[idom/2].duofld[1][iz].y; atomicAdd(pbuf,-0.25*Ty*Ty);if(iz  <Nz-1)atomicAdd(pbuf+1 ,-0.25*Ty*Ty);if(ix/2<Nx-1)atomicAdd(pbuf+NT*Ny,-0.25*Ty*Ty);if(iz  <Nz-1 && ix/2<Nx-1)atomicAdd(pbuf+NT*Ny+1 ,-0.25*Ty*Ty); } 
+               if(idom%2==1) { pbuf+=0    ; ftype Tz = p->Si[idom/2].duofld[2][iz].x; atomicAdd(pbuf,-0.25*Tz*Tz);if(iy/2<Ny-1)atomicAdd(pbuf+NT,-0.25*Tz*Tz);if(ix/2<Nx-1)atomicAdd(pbuf+NT*Ny,-0.25*Tz*Tz);if(iy/2<Ny-1 && ix/2<Nx-1)atomicAdd(pbuf+NT*Ny+NT,-0.25*Tz*Tz); } break; //inv2
       case 11: break; //inv3
       case 12: if(idom%2==0)              { pbuf+=0    ; MXW_DRAW_ANY(MODELCOFF_S(ShowRefS, ix, (iz*2+1), index->h[ idom/2*2     ][iz].x).x ); } break; // Vp*Vp*rho
       case 13: if(idom%2==0)              { pbuf+=0    ; MXW_DRAW_ANY(MODELCOFF_S(ShowRefS, ix, (iz*2+1), index->h[ idom/2*2     ][iz].x).y ); } break; // (Vp*Vp-2*Vs*Vs)*rho
@@ -165,6 +165,7 @@ __global__ void mxw_draw(float* buf) {
       case 28: if(idom%2==1 && (idom+1)%4!=0) { pbuf+=0    ; MXW_DRAW_ANY(index->h[Npls+(idom/2*3+2)/2][iz].x); }
           else if(idom%2==1 && (idom+1)%4==0) { pbuf+=0    ; MXW_DRAW_ANY(index->h[Npls+(idom/2*3+2)/2][iz].y); }; break; //h_Vz
     }
+    if(pars.nFunc<12 && pars.bgMat) if(idom%2==0) { pbuf+=0    ; atomicAdd(pbuf, 5*pow(0.1,double(7-pars.bgMat))*MODELCOFF_S(ShowRefS, ix, (iz*2+1), index->h[ idom/2*2     ][iz].x).y ); }
   }
   switch(pars.nFunc) {
 //    case 10: val=1./3*(c->Sx[iz]*c->Sy[iz]+c->Sx[iz]*c->Sz[iz]+c->Sy[iz]*c->Sz[iz]-c->Tx[iz]*c->Tx[iz]-c->Ty[iz]*c->Ty[iz]-c->Tz[iz]*c->Tz[iz]); MXW_DRAW_ANY(val>0?sqrt(val):-sqrt(-val)); break;
@@ -191,6 +192,38 @@ void idle_func_calc::step() {
   recalc_at_once=true;
 }
 
+unsigned char* read_config_file(int& n){
+  n = 0; int c; 
+  FILE* cfgfile;
+  cfgfile = fopen("acts.cfg","r");
+  if (cfgfile==NULL) return NULL;
+  else {
+    c = fgetc(cfgfile); if(c == EOF) {printf("config file is empty"); return NULL; } 
+    n = 0;
+    while(c != EOF) {
+      c = fgetc(cfgfile);
+      n++;
+    }
+    fclose(cfgfile);
+  }
+  unsigned char* actlist = NULL;
+  cfgfile = fopen("acts.cfg","r");
+  if (cfgfile==NULL) return NULL;
+  else {
+    actlist = new unsigned char[n];
+    for(int i=0; i<n; i++) { 
+      actlist[i] = (unsigned char)fgetc(cfgfile);
+      if     (actlist[i]=='\n') actlist[i] = 13;
+      else if(actlist[i]=='2' ) actlist[i] = 50;
+      else if(actlist[i]=='3' ) actlist[i] = 51;
+    }
+    fclose(cfgfile);
+  }
+  return actlist; 
+}
+int iact = 0;
+int nact = 0;
+unsigned char* sequence_act = NULL; 
 static void key_func(unsigned char key, int x, int y) {
   if(type_diag_flag>=2) printf("keyN=%d, coors=(%d,%d)\n", key, x, y);
   if(key == 'h') {
@@ -207,8 +240,16 @@ static void key_func(unsigned char key, int x, int y) {
   //case '<': if(parsHost.nFunc>0) parsHost.nFunc--; break;
   case '>': parsHost.nFunc = (parsHost.nFunc+1)%parsHost.MaxFunc; break;
   case '<': parsHost.nFunc = (parsHost.nFunc+parsHost.MaxFunc-1)%parsHost.MaxFunc; break;
+  case 'B': parsHost.bgMat = (parsHost.bgMat+1)%7; break;
   case 13: calcStep(); break;
   //case  8: recalc_at_once=arr3D_list->prev_arr2gpu(); return;
+  case 'c': 
+    {
+    printf("reading config file\n");
+    sequence_act = read_config_file(nact);
+    glutPostRedisplay();
+    return; 
+    }
   default: if(!im3DHost.key_func(key, x, y)) {
   if(type_diag_flag>=0) printf("По клавише %d в позиции (%d,%d) нет никакого действия\n", key, x, y);
   } return;
@@ -220,7 +261,15 @@ static void key_func(unsigned char key, int x, int y) {
   im3DHost.initCuda(parsHost.arr4im);
   recalc_at_once=true;
 }
-static void draw_func() { im3DHost.fName = FuncStr[parsHost.nFunc]; im2D.draw(im3DHost.reset_title()); }
+static void draw_func() { 
+  if (iact<nact) { 
+    key_func(sequence_act[iact],0,0);
+    iact++;
+    glutPostRedisplay();
+  }
+  if(nact>0 && iact==nact) delete[] sequence_act;
+  im3DHost.fName = FuncStr[parsHost.nFunc]; im2D.draw(im3DHost.reset_title()); 
+}
 
 //void (*idle_func_ptr)(float* );
 static void idle_func() { im3DHost.recalc_func(); }
@@ -389,7 +438,7 @@ void GeoParamsHost::set(){
   int xR = xL+mapNodeSize[node];
   omp_set_num_threads(4);
   for(int x=0;x<Np;x++) {
-    printf("Initializing h-parameter %.2f%%      \r",double(x+1)/Np); fflush(stdout);
+    printf("Initializing h-parameter %.2f%%      \r",100*double(x+1)/Np); fflush(stdout);
     if(x>=xL && x<xR) { 
       #pragma omp parallel for
       for(int y=0;y<Na;y++) dataInd[x*Na+y].set(x,y);

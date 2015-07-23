@@ -18,7 +18,7 @@ __device__ __forceinline__ float SrcSurf_Tx(const int s, const int v, const int 
 __device__ __forceinline__ float SrcSurf_Ty(const int s, const int v, const int a,  const float tt) {return 0;};
 __device__ __forceinline__ float SrcSurf_Tz(const int s, const int v, const int a,  const float tt) {return 0;};
 __device__ __forceinline__ float SrcSurf_Vx(const int s, const int v, const int a,  const float tt) {return 0;}
-__device__ __noinline__ float SrcSurf_Vy(const int s, const int v, const int a,  const float tt); 
+__device__ float SrcSurf_Vy(const int s, const int v, const int a,  const float tt) ; 
 __device__ __forceinline__ float SrcSurf_Vz(const int s, const int v, const int a,  const float tt) {return 0;}
 
 

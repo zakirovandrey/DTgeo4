@@ -14,7 +14,7 @@ from aivlib.vctr3 import *
 from spacemodel import *
 
 import DTgeo
-GridNx = DTgeo.cvar.GridNx
+
 GridNy = DTgeo.cvar.GridNy
 GridNz = DTgeo.cvar.GridNz
 dx=DTgeo.cvar.ds
@@ -23,7 +23,7 @@ dz=DTgeo.cvar.da
 dt=DTgeo.cvar.dt
 
 SM = SpaceModel()
-model = './spacemodel/model-B/0/'
+model = './spacemodel/Linevskaya_nVs_ext/0/'
 
 plasts = []
 for f in os.listdir(model):
@@ -62,7 +62,7 @@ P.main_plast = False
 
 print 'load OK'
 
-SrcCoords_LOC  = [ GridNx/2*dx+0.5*dx, GridNy/2*dy+0.5*dy, 6*dz]
+SrcCoords_LOC  = [ GridNx/2*dx+0.5*dx, GridNy/2*dy+0.5*dy, 50.0]
 SrcCoords_GLOB = [ (Xmax+Xmin)/2., (Ymax+Ymin)/2., 0 ]
 
 boom = SM.get_par(SrcCoords_GLOB[0], SrcCoords_GLOB[1], SrcCoords_GLOB[2])
@@ -70,9 +70,9 @@ SM.Vp, SM.Vs, SM.sigma = boom.Vp, boom.Vs, boom.sigma
 print "Phys_params at shotpoint %g %g %g\n"%(SM.Vp,SM.Vs,SM.sigma)
 
 SS = DTgeo.cvar.shotpoint
+SS.Ampl = 0.0;
 SS.F0=0.03;
 SS.gauss_waist=0.5;
-SS.Ampl=0.0;
 SS.srcXs, SS.srcXv, SS.srcXa = SrcCoords_LOC[0],SrcCoords_LOC[1],SrcCoords_LOC[2];
 SS.BoxMs, SS.BoxPs = SS.srcXs-4.1*dx, SS.srcXs+4.1*dx; 
 SS.BoxMa, SS.BoxPa = SS.srcXa-4.1*dz, SS.srcXa+4.1*dz; 

@@ -5,6 +5,7 @@
 #include <mpi.h>
 #endif
 
+__constant__ float texStretchH;
 __constant__ float2 texStretch[MAX_TEXS];
 __constant__ float2 texShift[MAX_TEXS];
 __constant__ float2 texStretchShow;
@@ -47,7 +48,6 @@ void ModelTexs::init(){
     #ifdef USE_AIVLIB_MODEL
     //get texN from aivModel
     get_texture_size(texN[ind].x, texN[ind].y, texN[ind].z);
-    texN[ind].z++;
     #else
     // My own texN
     texN[ind].x  = Np+1  ;
@@ -74,6 +74,8 @@ void ModelTexs::init(){
   float2 texShiftShowHost   = make_float2(1./(2*texN[0].x), 0.);
   for(int i=0; i<NDev; i++) {
     CHECK_ERROR( cudaSetDevice(i) );
+    h_scale = 2*((1<<16)/(2*texN[0].z)); const float texStretchH_host = 1.0/(texN[0].z*h_scale);\
+    CHECK_ERROR( cudaMemcpyToSymbol(texStretchH   ,&texStretchH_host, sizeof(float), 0, cudaMemcpyHostToDevice) );
     CHECK_ERROR( cudaMemcpyToSymbol(texStretch    , texStretchHost, sizeof(float2)*Ntexs, 0, cudaMemcpyHostToDevice) );
     CHECK_ERROR( cudaMemcpyToSymbol(texShift      , texShiftHost  , sizeof(float2)*Ntexs, 0, cudaMemcpyHostToDevice) );
     CHECK_ERROR( cudaMemcpyToSymbol(texStretchShow, &texStretchShowHost, sizeof(float2)*Ntexs, 0, cudaMemcpyHostToDevice) );
@@ -105,42 +107,55 @@ void ModelTexs::init(){
     #endif
     }
     CHECK_ERROR( cudaSetDevice(0) );
-    for(int ix=0; ix<texNx; ix++) for(int iy=0; iy<texNy; iy++) for(int ih=0; ih<texNh; ih++) { //or get from aivModel
-      // remember about yshift for idev>0
-      float Vp=defCoff::Vp, Vs=defCoff::Vs, rho=defCoff::rho, drho=defCoff::drho;
-      ftype C11=Vp*Vp        , C13=Vp*Vp-2*Vs*Vs, C12=Vp*Vp-2*Vs*Vs;
-      ftype C31=Vp*Vp-2*Vs*Vs, C33=Vp*Vp        , C32=Vp*Vp-2*Vs*Vs;
-      ftype C21=Vp*Vp-2*Vs*Vs, C23=Vp*Vp-2*Vs*Vs, C22=Vp*Vp;
-      ftype C44=Vs*Vs, C66=Vs*Vs, C55=Vs*Vs;
-      #ifdef USE_AIVLIB_MODEL
-      GeoPhysPar p = get_texture_cell(ix,iy,ih); Vp=p.Vp; Vs=p.Vs; rho=p.sigma; drho=1.0/rho;
-      //C11,C12,C13;
-      //C21,C22,C23;
-      //C31,C32,C33;
-      #else
-      //if(ix<texNx/4)   Vp*= (1.0-0.5)/(texNx/4)*ix+0.5;
-      //if(ix>3*texNx/4) Vp*= (0.5-1.0)/(texNx/4)*ix+0.5+4*(1.0-0.5);
-      #endif
-      HostLayerV[ind][ix*texNy*texNh+ih*texNy+iy] = drho;
-      #ifndef ANISO_TR
-      HostLayerS[ind][ix*texNy*texNh+ih*texNy+iy] = make_float2( Vp*Vp, Vp*Vp-2*Vs*Vs )*rho;
-      HostLayerT[ind][ix*texNy*texNh+ih*texNy+iy] = Vs*Vs*rho;
-      #elif ANISO_TR==1
-      HostLayerS[ind][ix*texNy*texNh+ih*texNy+iy] = make_float4( C11, C12, C23, C22 )*rho;
-      HostLayerTa[ind][ix*texNy*texNh+ih*texNy+iy] = C44*rho;
-      HostLayerTi[ind][ix*texNy*texNh+ih*texNy+iy] = C55*rho;
-      #elif ANISO_TR==2
-      HostLayerS[ind][ix*texNy*texNh+ih*texNy+iy] = make_float4( C22, C12, C13, C11 )*rho;
-      HostLayerTa[ind][ix*texNy*texNh+ih*texNy+iy] = C55*rho;
-      HostLayerTi[ind][ix*texNy*texNh+ih*texNy+iy] = C44*rho;
-      #elif ANISO_TR==3
-      HostLayerS[ind][ix*texNy*texNh+ih*texNy+iy] = make_float4( C33, C13, C12, C11 )*rho;
-      HostLayerTa[ind][ix*texNy*texNh+ih*texNy+iy] = C66*rho;
-      HostLayerTi[ind][ix*texNy*texNh+ih*texNy+iy] = C44*rho;
-      #else
-      #error ANISO_TYPE ANISO_TR not implemented yet
-      #endif
+    ftype* rhoArr; rhoArr=new ftype[texNh+1];
+    for(int ix=0; ix<texNx; ix++) for(int iy=0; iy<texNy; iy++) {
+      for(int ih=0; ih<texNh; ih++) { //or get from aivModel
+        // remember about yshift for idev>0
+        float Vp=defCoff::Vp, Vs=defCoff::Vs, rho=defCoff::rho, drho=defCoff::drho;
+        ftype C11=Vp*Vp        , C13=Vp*Vp-2*Vs*Vs, C12=Vp*Vp-2*Vs*Vs;
+        ftype C31=Vp*Vp-2*Vs*Vs, C33=Vp*Vp        , C32=Vp*Vp-2*Vs*Vs;
+        ftype C21=Vp*Vp-2*Vs*Vs, C23=Vp*Vp-2*Vs*Vs, C22=Vp*Vp;
+        ftype C44=Vs*Vs, C66=Vs*Vs, C55=Vs*Vs;
+        #ifdef USE_AIVLIB_MODEL
+        GeoPhysPar p = get_texture_cell(ix,iy,ih-((ih==texNh)?1:0)); Vp=p.Vp; Vs=p.Vs; rho=p.sigma; drho=1.0/rho;
+        //C11,C12,C13;
+        //C21,C22,C23;
+        //C31,C32,C33;
+        #else
+        //if(ix<texNx/4)   Vp*= (1.0-0.5)/(texNx/4)*ix+0.5;
+        //if(ix>3*texNx/4) Vp*= (0.5-1.0)/(texNx/4)*ix+0.5+4*(1.0-0.5);
+        #endif
+        rhoArr[ih] = rho;
+        HostLayerV[ind][ix*texNy*texNh+ih*texNy+iy] = drho;
+        #ifndef ANISO_TR
+        HostLayerS[ind][ix*texNy*texNh+ih*texNy+iy] = make_float2( Vp*Vp, Vp*Vp-2*Vs*Vs )*rho;
+        HostLayerT[ind][ix*texNy*texNh+ih*texNy+iy] = Vs*Vs*rho;
+        #elif ANISO_TR==1
+        HostLayerS[ind][ix*texNy*texNh+ih*texNy+iy] = make_float4( C11, C12, C23, C22 )*rho;
+        HostLayerTa[ind][ix*texNy*texNh+ih*texNy+iy] = C44*rho;
+        HostLayerTi[ind][ix*texNy*texNh+ih*texNy+iy] = C55*rho;
+        #elif ANISO_TR==2
+        HostLayerS[ind][ix*texNy*texNh+ih*texNy+iy] = make_float4( C22, C12, C13, C11 )*rho;
+        HostLayerTa[ind][ix*texNy*texNh+ih*texNy+iy] = C55*rho;
+        HostLayerTi[ind][ix*texNy*texNh+ih*texNy+iy] = C44*rho;
+        #elif ANISO_TR==3
+        HostLayerS[ind][ix*texNy*texNh+ih*texNy+iy] = make_float4( C33, C13, C12, C11 )*rho;
+        HostLayerTa[ind][ix*texNy*texNh+ih*texNy+iy] = C66*rho;
+        HostLayerTi[ind][ix*texNy*texNh+ih*texNy+iy] = C44*rho;
+        #else
+        #error ANISO_TYPE ANISO_TR not implemented yet
+        #endif
+      }
+      for(int iz=0; iz<Na*NDT*2; iz++) {
+        unsigned short h = get_h(ix*Np*NDT*2/texNx, iy*2*Nz/texNy, -iz*0.5*da);
+        int id = floor(h/h_scale);
+        //int id = floor((h)/double(1<<16)*112);
+        float rho1 = rhoArr[id];
+        float rho2 = rhoArr[id+1];
+        if(id>=texNh || rho1==0 || rho2==0)  printf("Error: ix=%d iy=%d iz=%g id=%d rho1=%g rho2=%g\n", ix*Np*NDT*2/texNx, iy*2*Nz/texNy, -iz*0.5*da, id, rho1,rho2);
+      }
     }
+    delete rhoArr;
   }
   for(int idev=0;idev<NDev;idev++) { CHECK_ERROR( cudaSetDevice(idev) ); 
   CHECK_ERROR( cudaMemcpy(layerS [idev], layerS_host [idev], sizeof(cudaTextureObject_t)*Ntexs, cudaMemcpyHostToDevice) );
@@ -296,10 +311,10 @@ void ModelRag::set(int x, int y) {
     for(int i=0;i<32;i++) for(int iz=0;iz<Nz;iz++) {
       int3 x4h;
       x4h = make_int3(x*2*NDT+d_index[2*i  ][0], iz*2+d_index[2*i  ][2], y*2*NDT+d_index[2*i  ][1]); x4h = check_bounds(x4h);
-      h[i][iz].x = (get_h(x4h.x, x4h.y, -x4h.z*0.5*dy)*corrCoff1+0.5)*corrCoff2;
+      h[i][iz].x = get_h(x4h.x, x4h.y, -x4h.z*0.5*dy) + parsHost.texs.h_scale/2;
       //h[i][iz].x = ((x4h.x*x4h.y-x4h.z*0.5*dy)*corrCoff1+0.5)*corrCoff2;
       x4h = make_int3(x*2*NDT+d_index[2*i+1][0], iz*2+d_index[2*i+1][2], y*2*NDT+d_index[2*i+1][1]); x4h = check_bounds(x4h);
-      h[i][iz].y = (get_h(x4h.x, x4h.y, -x4h.z*0.5*dy)*corrCoff1+0.5)*corrCoff2;
+      h[i][iz].y = get_h(x4h.x, x4h.y, -x4h.z*0.5*dy) + parsHost.texs.h_scale/2;
       //h[i][iz].y = ((x4h.x*x4h.y-x4h.z*0.5*dy)*corrCoff1+0.5)*corrCoff2;
     }
     #endif

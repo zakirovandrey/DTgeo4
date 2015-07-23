@@ -45,6 +45,7 @@ int main(int argc, char** argv){
       //printf("t=%g x1=%g x2=%g\n",t,x1,x2);
       for(int ix=x1; ix<x2; ix++) for(int iwarp=0; iwarp<Nw; iwarp++) for(int ith=0; ith<32; ith++) {
         //printf("ix=%d iwarp=%d ith=%d drop_cells=%d\n",ix,iwarp,ith,drop_cells[(ix+Nx)%Nx*Nw+iwarp]);
+        if(ix<0) continue;
         if(drop_cells[(ix+Nx)%Nx*Nw+iwarp] & 1<<ith) {
           //printf("ix =%d iwarp=%d ith=%d t=%d val=%g\n", ix,iwarp,ith,int(t),val);
           if( fread(&val , sizeof(float), 1, fraw)!=1 ) { printf("(pos %d) ", ftell(fraw)); perror("drop_cells Reading error val\n"); }

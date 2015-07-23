@@ -11,12 +11,12 @@
 
 //1 -- many textures, 2 -- one texture, 0 -- one texture reference
 #define TEX_MODEL_TYPE 0
-#define H_MAX_SIZE (USHRT_MAX-1)
+#define H_MAX_SIZE (USHRT_MAX+1)
 typedef ushort2 htype;
 
 //const float texStretchX=1.0/(2*Ns*NDT);
 //const float texStretchY=1.0/(2*Nz);
-const float texStretchH=1.0/H_MAX_SIZE;
+extern __constant__ float texStretchH;
 extern __constant__ float2 texStretch[MAX_TEXS];
 extern __constant__ float2 texShift[MAX_TEXS];
 extern __constant__ float2 texStretchShow;
@@ -55,6 +55,7 @@ extern texture<float  , cudaTextureType3D, cudaReadModeElementType> layerRefTi;
 struct ModelTexs{
   bool ShowTexBinded;
   int Ntexs;
+  int h_scale;
   int3* texN;
   int* tex0;
   float* texStep;

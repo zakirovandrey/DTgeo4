@@ -202,30 +202,30 @@ extern __shared__ ftype2 shared_fld[14][Nv];
   if(pars.iStep>0) {\
     for(int ich=0;ich<NDRP;ich++) if(pars.drop.channelAddr[ich]+3+3>=pars.drop.channel[ich]+pars.drop.channelDevLength) {\
       printf("Error: Length of Device channel %d is exceeded (to fix increase channelDevLength value)\n", ich); return; } }\
-  if(chunkSi[1]-chunkSi[0]>0) { channelSx[0]=ftype(pars.iStep*Ntime+it); channelSx[1]=ftype(glob_ix*NDT+chunkSi[0]); channelSx[2]=ftype(glob_ix*NDT+chunkSi[1]); }\
-  if(chunkSi[1]-chunkSi[0]>0) { channelSy[0]=ftype(pars.iStep*Ntime+it); channelSy[1]=ftype(glob_ix*NDT+chunkSi[0]); channelSy[2]=ftype(glob_ix*NDT+chunkSi[1]); }\
-  if(chunkSi[1]-chunkSi[0]>0) { channelSz[0]=ftype(pars.iStep*Ntime+it); channelSz[1]=ftype(glob_ix*NDT+chunkSi[0]); channelSz[2]=ftype(glob_ix*NDT+chunkSi[1]); }\
-  if(chunkTx[1]-chunkTx[0]>0) { channelTx[0]=ftype(pars.iStep*Ntime+it); channelTx[1]=ftype(glob_ix*NDT+chunkTx[0]); channelTx[2]=ftype(glob_ix*NDT+chunkTx[1]); }\
-  if(chunkTy[1]-chunkTy[0]>0) { channelTy[0]=ftype(pars.iStep*Ntime+it); channelTy[1]=ftype(glob_ix*NDT+chunkTy[0]); channelTy[2]=ftype(glob_ix*NDT+chunkTy[1]); }\
-  if(chunkTz[1]-chunkTz[0]>0) { channelTz[0]=ftype(pars.iStep*Ntime+it); channelTz[1]=ftype(glob_ix*NDT+chunkTz[0]); channelTz[2]=ftype(glob_ix*NDT+chunkTz[1]); }\
-  if(chunkVx[1]-chunkVx[0]>0) { channelVx[0]=ftype(pars.iStep*Ntime+it); channelVx[1]=ftype(glob_ix*NDT+chunkVx[0]); channelVx[2]=ftype(glob_ix*NDT+chunkVx[1]); }\
-  if(chunkVy[1]-chunkVy[0]>0) { channelVy[0]=ftype(pars.iStep*Ntime+it); channelVy[1]=ftype(glob_ix*NDT+chunkVy[0]); channelVy[2]=ftype(glob_ix*NDT+chunkVy[1]); }\
-  if(chunkVz[1]-chunkVz[0]>0) { channelVz[0]=ftype(pars.iStep*Ntime+it); channelVz[1]=ftype(glob_ix*NDT+chunkVz[0]); channelVz[2]=ftype(glob_ix*NDT+chunkVz[1]); }\
+  if(chunkSi[1]-chunkSi[0]>0 && glob_ix*NDT+chunkSi[0]>=0) { channelSx[0]=ftype(pars.iStep*Ntime+it); channelSx[1]=ftype(glob_ix*NDT+chunkSi[0]); channelSx[2]=ftype(glob_ix*NDT+chunkSi[1]); }\
+  if(chunkSi[1]-chunkSi[0]>0 && glob_ix*NDT+chunkSi[0]>=0) { channelSy[0]=ftype(pars.iStep*Ntime+it); channelSy[1]=ftype(glob_ix*NDT+chunkSi[0]); channelSy[2]=ftype(glob_ix*NDT+chunkSi[1]); }\
+  if(chunkSi[1]-chunkSi[0]>0 && glob_ix*NDT+chunkSi[0]>=0) { channelSz[0]=ftype(pars.iStep*Ntime+it); channelSz[1]=ftype(glob_ix*NDT+chunkSi[0]); channelSz[2]=ftype(glob_ix*NDT+chunkSi[1]); }\
+  if(chunkTx[1]-chunkTx[0]>0 && glob_ix*NDT+chunkTx[0]>=0) { channelTx[0]=ftype(pars.iStep*Ntime+it); channelTx[1]=ftype(glob_ix*NDT+chunkTx[0]); channelTx[2]=ftype(glob_ix*NDT+chunkTx[1]); }\
+  if(chunkTy[1]-chunkTy[0]>0 && glob_ix*NDT+chunkTy[0]>=0) { channelTy[0]=ftype(pars.iStep*Ntime+it); channelTy[1]=ftype(glob_ix*NDT+chunkTy[0]); channelTy[2]=ftype(glob_ix*NDT+chunkTy[1]); }\
+  if(chunkTz[1]-chunkTz[0]>0 && glob_ix*NDT+chunkTz[0]>=0) { channelTz[0]=ftype(pars.iStep*Ntime+it); channelTz[1]=ftype(glob_ix*NDT+chunkTz[0]); channelTz[2]=ftype(glob_ix*NDT+chunkTz[1]); }\
+  if(chunkVx[1]-chunkVx[0]>0 && glob_ix*NDT+chunkVx[0]>=0) { channelVx[0]=ftype(pars.iStep*Ntime+it); channelVx[1]=ftype(glob_ix*NDT+chunkVx[0]); channelVx[2]=ftype(glob_ix*NDT+chunkVx[1]); }\
+  if(chunkVy[1]-chunkVy[0]>0 && glob_ix*NDT+chunkVy[0]>=0) { channelVy[0]=ftype(pars.iStep*Ntime+it); channelVy[1]=ftype(glob_ix*NDT+chunkVy[0]); channelVy[2]=ftype(glob_ix*NDT+chunkVy[1]); }\
+  if(chunkVz[1]-chunkVz[0]>0 && glob_ix*NDT+chunkVz[0]>=0) { channelVz[0]=ftype(pars.iStep*Ntime+it); channelVz[1]=ftype(glob_ix*NDT+chunkVz[0]); channelVz[2]=ftype(glob_ix*NDT+chunkVz[1]); }\
   }\
-  if(chunkSi[1]-chunkSi[0]>0) {channelSx+=3; channelSy+=3; channelSz+=3;}\
+  if(chunkSi[1]-chunkSi[0]>0 && glob_ix*NDT+chunkSi[0]>=0) {channelSx+=3; channelSy+=3; channelSz+=3;}\
   if(chunkTx[1]-chunkTx[0]>0) channelTx+=3; if(chunkTy[1]-chunkTy[0]>0) channelTy+=3; if(chunkTz[1]-chunkTz[0]>0) channelTz+=3; \
   if(chunkVx[1]-chunkVx[0]>0) channelVx+=3; if(chunkVy[1]-chunkVy[0]>0) channelVy+=3; if(chunkVz[1]-chunkVz[0]>0) channelVz+=3;\
 
 #define RPOINT_CHUNK_SHIFT\
-  for(int xdrop=chunkSi[0]; xdrop<chunkSi[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelSx+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
-  for(int xdrop=chunkSi[0]; xdrop<chunkSi[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelSy+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
-  for(int xdrop=chunkSi[0]; xdrop<chunkSi[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelSz+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
-  for(int xdrop=chunkTx[0]; xdrop<chunkTx[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelTx+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
-  for(int xdrop=chunkTy[0]; xdrop<chunkTy[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelTy+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
-  for(int xdrop=chunkTz[0]; xdrop<chunkTz[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelTz+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
-  for(int xdrop=chunkVx[0]; xdrop<chunkVx[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelVx+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
-  for(int xdrop=chunkVy[0]; xdrop<chunkVy[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelVy+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
-  for(int xdrop=chunkVz[0]; xdrop<chunkVz[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelVz+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
+  if(glob_ix*NDT+chunkSi[0]>=0) for(int xdrop=chunkSi[0]; xdrop<chunkSi[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelSx+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
+  if(glob_ix*NDT+chunkSi[0]>=0) for(int xdrop=chunkSi[0]; xdrop<chunkSi[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelSy+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
+  if(glob_ix*NDT+chunkSi[0]>=0) for(int xdrop=chunkSi[0]; xdrop<chunkSi[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelSz+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
+  if(glob_ix*NDT+chunkTx[0]>=0) for(int xdrop=chunkTx[0]; xdrop<chunkTx[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelTx+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
+  if(glob_ix*NDT+chunkTy[0]>=0) for(int xdrop=chunkTy[0]; xdrop<chunkTy[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelTy+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
+  if(glob_ix*NDT+chunkTz[0]>=0) for(int xdrop=chunkTz[0]; xdrop<chunkTz[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelTz+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
+  if(glob_ix*NDT+chunkVx[0]>=0) for(int xdrop=chunkVx[0]; xdrop<chunkVx[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelVx+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
+  if(glob_ix*NDT+chunkVy[0]>=0) for(int xdrop=chunkVy[0]; xdrop<chunkVy[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelVy+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
+  if(glob_ix*NDT+chunkVz[0]>=0) for(int xdrop=chunkVz[0]; xdrop<chunkVz[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelVz+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
   if(threadIdx.x==blockDim.x-1) {\
   pars.drop.channelAddr[0]=channelSx; pars.drop.channelAddr[1]=channelSy; pars.drop.channelAddr[2]=channelSz;\
   pars.drop.channelAddr[3]=channelTx; pars.drop.channelAddr[4]=channelTy; pars.drop.channelAddr[5]=channelTz;\

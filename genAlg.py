@@ -245,6 +245,7 @@ class data():
       if self.typus!="S": print "  #ifndef DROP_ONLY_V"
       if self.typus=="S": fval = "%s*0.5625+%s*0.5625-%s*0.0625-%s*0.0625"%tuple(map(lambda n: n.name, self.neigh[self.proj]))
       else: fval = self.name
+      if data.PMLS: print "  if(glob_ix*NDT%+d>=0)"%(self.coord[0]/2) 
       print "  dropPP(ix*NDT%+d, %d-chunk%s[0], iz, it, channel%s, %s);"%(
           self.coord[0]/2, self.coord[0]/2, self.typus+('xyz'[self.proj] if self.typus!='S' else 'i'), self.typus+'xyz'[self.proj], fval)
       if self.typus!="S": print "  #endif// DROP_ONLY_V"

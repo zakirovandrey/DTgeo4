@@ -1,9 +1,9 @@
 const int NDT=3;
 typedef float ftype;
 
-#define gridNx 1500
-#define gridNy 256
-#define gridNz 600
+#define gridNx 1350
+#define gridNy 416
+#define gridNz 1152
 
 //#define ANISO_TR 2
 
@@ -19,7 +19,7 @@ typedef float ftype;
 #define DROP_ONLY_V
 
 #ifndef NS
-#define NS 125
+#define NS 25
 const int Np=gridNx/3;
 const int GridNx=gridNx;
 #else
@@ -41,7 +41,7 @@ const int Npmlx=2*5;//2*24;
 const int Npmly=5;//24;
 const int Npmlz=2*16;//128;
 
-const ftype ds=25./3, da=25./3, dv=25./3, dt=0.5;
+const ftype ds=25./2, da=6.95, dv=25./2, dt=2./3.;
 
 extern struct TFSFsrc{
   ftype Vp, Vs, Rho;

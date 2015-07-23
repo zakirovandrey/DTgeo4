@@ -201,7 +201,7 @@ struct Sensor;
 #include "drop.cu"
 #include "texmodel.cuh"
 struct GeoParams{
-  unsigned int nFunc;
+  unsigned int nFunc, bgMat;
   int iStep; int wleft; int GPUx0;
 
   float Rz;
