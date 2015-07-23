@@ -15,6 +15,7 @@ from spacemodel import *
 
 import DTgeo
 
+GridNx = DTgeo.cvar.GridNx
 GridNy = DTgeo.cvar.GridNy
 GridNz = DTgeo.cvar.GridNz
 dx=DTgeo.cvar.ds
@@ -23,7 +24,8 @@ dz=DTgeo.cvar.da
 dt=DTgeo.cvar.dt
 
 SM = SpaceModel()
-model = './spacemodel/Linevskaya_nVs_ext/0/'
+#model = './spacemodel/Linevskaya_nVs_ext/0/'
+model = './spacemodel/model-B/0/'
 
 plasts = []
 for f in os.listdir(model):

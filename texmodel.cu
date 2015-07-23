@@ -146,6 +146,7 @@ void ModelTexs::init(){
         #error ANISO_TYPE ANISO_TR not implemented yet
         #endif
       }
+      #ifdef USE_AIVLIB_MODEL
       for(int iz=0; iz<Na*NDT*2; iz++) {
         unsigned short h = get_h(ix*Np*NDT*2/texNx, iy*2*Nz/texNy, -iz*0.5*da);
         int id = floor(h/h_scale);
@@ -154,6 +155,7 @@ void ModelTexs::init(){
         float rho2 = rhoArr[id+1];
         if(id>=texNh || rho1==0 || rho2==0)  printf("Error: ix=%d iy=%d iz=%g id=%d rho1=%g rho2=%g\n", ix*Np*NDT*2/texNx, iy*2*Nz/texNy, -iz*0.5*da, id, rho1,rho2);
       }
+      #endif
     }
     delete rhoArr;
   }

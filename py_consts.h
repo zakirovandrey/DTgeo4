@@ -1,7 +1,7 @@
 const int NDT=3;
 typedef float ftype;
 
-#define gridNx 1350
+#define gridNx 600//1350
 #define gridNy 416
 #define gridNz 1152
 
