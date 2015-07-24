@@ -74,7 +74,7 @@ void ModelTexs::init(){
   float2 texShiftShowHost   = make_float2(1./(2*texN[0].x), 0.);
   for(int i=0; i<NDev; i++) {
     CHECK_ERROR( cudaSetDevice(i) );
-    h_scale = 2*((1<<16)/(2*texN[0].z)); const float texStretchH_host = 1.0/(texN[0].z*h_scale);\
+    h_scale = 2*((1<<16)/(2*texN[0].z)); const float texStretchH_host = 1.0/(texN[0].z*h_scale);
     CHECK_ERROR( cudaMemcpyToSymbol(texStretchH   ,&texStretchH_host, sizeof(float), 0, cudaMemcpyHostToDevice) );
     CHECK_ERROR( cudaMemcpyToSymbol(texStretch    , texStretchHost, sizeof(float2)*Ntexs, 0, cudaMemcpyHostToDevice) );
     CHECK_ERROR( cudaMemcpyToSymbol(texShift      , texShiftHost  , sizeof(float2)*Ntexs, 0, cudaMemcpyHostToDevice) );
@@ -146,19 +146,24 @@ void ModelTexs::init(){
         #error ANISO_TYPE ANISO_TR not implemented yet
         #endif
       }
-      #ifdef USE_AIVLIB_MODEL
-      for(int iz=0; iz<Na*NDT*2; iz++) {
-        unsigned short h = get_h(ix*Np*NDT*2/texNx, iy*2*Nz/texNy, -iz*0.5*da);
-        int id = floor(h/h_scale);
-        //int id = floor((h)/double(1<<16)*112);
-        float rho1 = rhoArr[id];
-        float rho2 = rhoArr[id+1];
-        if(id>=texNh || rho1==0 || rho2==0)  printf("Error: ix=%d iy=%d iz=%g id=%d rho1=%g rho2=%g\n", ix*Np*NDT*2/texNx, iy*2*Nz/texNy, -iz*0.5*da, id, rho1,rho2);
+      if(iy==0) { printf("Testing get_h ix=%d/%d \r", ix, texNx-1); fflush(stdout); }
+      int aivTexStepX=Np*NDT*2/(texNx-1); //in half-YeeCells
+      int aivTexStepY=2*Nz/(texNy-1); //in half-YeeCells
+      for(int xx=(ix==texNx-1?1:0); xx<((ix==0)?1:aivTexStepX); xx++) for(int yy=(iy==texNy-1?1:0); yy<((iy==0)?1:aivTexStepY); yy++) {
+        for(int iz=0; iz<Na*NDT*2; iz++) {
+          unsigned short h = get_h(ix*aivTexStepX-xx, iy*aivTexStepY-yy, -iz*0.5*da);
+          int id = h/(2*h_scale), idd=h%(2*h_scale); 
+          //int id = floor((h)/double(1<<16)*112);
+          float rho1 = rhoArr[2*id];
+          float rho2 = rhoArr[2*id+1];
+          if(id<0 || 2*id>=texNh || idd>h_scale || rho1<=0 || rho2<=0)
+             printf("Error: ix=%d-%d iy=%d-%d iz=%g id=%d h%%h_scale=%d rho1=%g rho2=%g\n", ix*aivTexStepX, xx, iy*aivTexStepY, yy, -iz*0.5*da, id, idd, rho1,rho2);
+        }
       }
-      #endif
     }
     delete rhoArr;
   }
+  printf("\n");
   for(int idev=0;idev<NDev;idev++) { CHECK_ERROR( cudaSetDevice(idev) ); 
   CHECK_ERROR( cudaMemcpy(layerS [idev], layerS_host [idev], sizeof(cudaTextureObject_t)*Ntexs, cudaMemcpyHostToDevice) );
   CHECK_ERROR( cudaMemcpy(layerV [idev], layerV_host [idev], sizeof(cudaTextureObject_t)*Ntexs, cudaMemcpyHostToDevice) );
