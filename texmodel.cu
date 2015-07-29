@@ -146,6 +146,7 @@ void ModelTexs::init(){
         #error ANISO_TYPE ANISO_TR not implemented yet
         #endif
       }
+      #ifdef USE_AIVLIB_MODEL
       if(iy==0) { printf("Testing get_h ix=%d/%d \r", ix, texNx-1); fflush(stdout); }
       int aivTexStepX=Np*NDT*2/(texNx-1); //in half-YeeCells
       int aivTexStepY=2*Nz/(texNy-1); //in half-YeeCells
@@ -160,6 +161,7 @@ void ModelTexs::init(){
              printf("Error: ix=%d-%d iy=%d-%d iz=%g id=%d h%%h_scale=%d rho1=%g rho2=%g\n", ix*aivTexStepX, xx, iy*aivTexStepY, yy, -iz*0.5*da, id, idd, rho1,rho2);
         }
       }
+      #endif
     }
     delete rhoArr;
   }
