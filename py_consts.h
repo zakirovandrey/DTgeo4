@@ -3,7 +3,7 @@ typedef float ftype;
 
 #define gridNx 1350
 #define gridNy 416
-#define gridNz 1152
+#define gridNz 984//1152
 
 //#define ANISO_TR 2
 
