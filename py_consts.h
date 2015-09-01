@@ -1,5 +1,9 @@
 const int NDT=3;
+#ifdef USE_DOUBLE
+typedef double ftype;
+#else
 typedef float ftype;
+#endif
 
 #define gridNx 1350
 #define gridNy 416

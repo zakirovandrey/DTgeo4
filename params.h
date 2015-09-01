@@ -13,12 +13,21 @@
 #define USE_UVM 0
 #endif
 
+#ifdef USE_DOUBLE
+typedef double ftype;
+#define FTYPESIZE 8
+typedef double2 ftype2;
+typedef double3 ftype3;
+typedef double4 ftype4;
+template<typename T1,typename T2> __host__ __device__ ftype2 make_ftype2(const T1& f1, const T2& f2) { return make_double2(f1,f2); }
+#else//use float
 typedef float ftype;
 #define FTYPESIZE 4
 typedef float2 ftype2;
 typedef float3 ftype3;
 typedef float4 ftype4;
 template<typename T1,typename T2> __host__ __device__ ftype2 make_ftype2(const T1& f1, const T2& f2) { return make_float2(f1,f2); }
+#endif
 
 #include "py_consts.h"
 
@@ -78,7 +87,7 @@ const int KNpmlx=2*Npmlx*NDT;//128;
 
 #define SquareGrid 0
 const ftype dr=5*5./512.;
-//const float dx=dr, dy=dr, dz=dr, dt=1*5./512.;
+//const ftype dx=dr, dy=dr, dz=dr, dt=1*5./512.;
 const ftype dx=ds, dy=da, dz=dv;
 const ftype dtdx=dt/dx, dtdy=dt/dy, dtdz=dt/dz;
 //STATIC_ASSERT((dx==dy) && (SquareGrid==1));

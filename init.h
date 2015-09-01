@@ -24,19 +24,19 @@ __global__ void __launch_bounds__(Nz) set_data() {
       } else {
         if(idom%2==0) {
           const int Lenx=Nx*2, Leny=Ny*2, Lenz=Nv;
-          float env = (1.0+cos((ix-Lenx/2)/50.*M_PI))*(1.0+cos((iy-Leny/3)/50.*M_PI))*(1.0+cos((iz-Lenz/2)/50.*M_PI));
+          ftype env = (1.0+cos((ix-Lenx/2)/50.*M_PI))*(1.0+cos((iy-Leny/3)/50.*M_PI))*(1.0+cos((iz-Lenz/2)/50.*M_PI));
           if(abs(ix-Lenx/2)>=50 || abs(iy-Leny/3)>=50 || abs(iz-Lenz/2)>=50) env=0.0f;
           p->Vi[idom/2].trifld.one[iz]   = 0*env*cos((iy-Leny/3)*0.06*M_PI); //Vy
         }
         if(idom%2==1) {      
           const int Lenx=Nx*2, Leny=Ny*2, Lenz=Nv;
-          float env = (1.0+cos((ix-Lenx/2)/50.*M_PI))*(1.0+cos((iy-Leny/3)/50.*M_PI))*(1.0+cos((iz-Lenz/2)/50.*M_PI));
+          ftype env = (1.0+cos((ix-Lenx/2)/50.*M_PI))*(1.0+cos((iy-Leny/3)/50.*M_PI))*(1.0+cos((iz-Lenz/2)/50.*M_PI));
           if(abs(ix-Lenx/2)>=50 || abs(iy-Leny/3)>=50 || abs(iz-Lenz/2)>=50) env=0.0f;
           p->Vi[idom/2].trifld.two[iz].x = 0*env*cos((ix-Lenx/3)*0.06*M_PI);   //Vx
         }
         if(idom%2==1) {
           const int Lenx=Nx*2, Leny=Ny*2, Lenz=Nv;
-          float env = (1.0+cos((ix-Lenx/2)/50.*M_PI))*(1.0+cos((iy-Leny/3)/50.*M_PI))*(1.0+cos((iz-Lenz/2)/50.*M_PI));
+          ftype env = (1.0+cos((ix-Lenx/2)/50.*M_PI))*(1.0+cos((iy-Leny/3)/50.*M_PI))*(1.0+cos((iz-Lenz/2)/50.*M_PI));
           if(abs(ix-Lenx/2)>=50 || abs(iy-Leny/3)>=50 || abs(iz-Lenz/2)>=50) env=0.0f;
           p->Vi[idom/2].trifld.two[iz].y = env*cos((iz-Lenz/3)*0.06*M_PI); //Vz 
         }

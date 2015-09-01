@@ -38,10 +38,12 @@ struct __align__(16) ModelRag{
 };
 
 #ifndef ANISO_TR
-typedef ftype2 coffS_t;
-#define DEF_COFF_S make_float2(defCoff::Vp*defCoff::Vp, defCoff::Vp*defCoff::Vp-2*defCoff::Vs*defCoff::Vs)*defCoff::rho*dtdrd24;
+typedef float2 coffS_t;
+typedef ftype2 coffS_tp;
+#define DEF_COFF_S make_ftype2(defCoff::Vp*defCoff::Vp*defCoff::rho*dtdrd24, (defCoff::Vp*defCoff::Vp-2*defCoff::Vs*defCoff::Vs)*defCoff::rho*dtdrd24);
 #elif ANISO_TR==1 || ANISO_TR==2 || ANISO_TR==3
-typedef ftype4 coffS_t;
+typedef float4 coffS_t;
+typedef ftype4 coffS_tp;
 #else // ifndef ANISO_TR
 #error UNKNOWN ANISOTROPY TYPE
 #endif //ANISO_TR
@@ -72,18 +74,18 @@ struct ModelTexs{
 
 #include "signal.h"
 namespace defCoff {
-//  const float Vp=TFSF::Vp_, Vs=TFSF::Vs_, rho=TFSF::Rho,drho=TFSF::dRho;
-  const float Vp=2.6, Vs=1.5, rho=2.3,drho=1/rho;
+//  const ftype Vp=TFSF::Vp_, Vs=TFSF::Vs_, rho=TFSF::Rho,drho=TFSF::dRho;
+  const ftype Vp=2.6, Vs=1.5, rho=2.3,drho=1/rho;
   const ftype C11 = Vp*Vp        , C12 = Vp*Vp-2*Vs*Vs, C13 = Vp*Vp-2*Vs*Vs;
   const ftype C21 = Vp*Vp-2*Vs*Vs, C22 = Vp*Vp        , C23 = Vp*Vp-2*Vs*Vs;
   const ftype C31 = Vp*Vp-2*Vs*Vs, C32 = Vp*Vp-2*Vs*Vs, C33 = Vp*Vp;
 };
 #if ANISO_TR==1
-#define DEF_COFF_S make_float4(defCoff::C11, defCoff::C12, defCoff::C23, defCoff::C22)*defCoff::rho*dtdrd24;
+#define DEF_COFF_S make_ftype4(defCoff::C11, defCoff::C12, defCoff::C23, defCoff::C22)*defCoff::rho*dtdrd24;
 #elif ANISO_TR==2
-#define DEF_COFF_S make_float4(defCoff::C22, defCoff::C12, defCoff::C13, defCoff::C11)*defCoff::rho*dtdrd24;
+#define DEF_COFF_S make_ftype4(defCoff::C22, defCoff::C12, defCoff::C13, defCoff::C11)*defCoff::rho*dtdrd24;
 #elif ANISO_TR==3
-#define DEF_COFF_S make_float4(defCoff::C33, defCoff::C13, defCoff::C12, defCoff::C11)*defCoff::rho*dtdrd24;
+#define DEF_COFF_S make_ftype4(defCoff::C33, defCoff::C13, defCoff::C12, defCoff::C11)*defCoff::rho*dtdrd24;
 #endif//ANISO_TR
 
 #endif//TEXMODEL_CU

@@ -1,6 +1,7 @@
 #ARCH ?= #k100#geocluster #gpupc1 #D
 #USE_AIVLIB_MODEL ?= 1
 #MPI_ON ?= 1
+#USE_DOUBLE ?= 1
 
 ifdef MPI_ON
 ifeq ($(ARCH),k100)
@@ -30,7 +31,7 @@ NVCC := nvcc -ccbin $(GCC) -O3
 GENCODE_SM := -arch=sm_50
 endif 
 #NTIME = 0
-ALL_DEFS := NS NA NV NTIME DYSH MPI_ON USE_AIVLIB_MODEL
+ALL_DEFS := NS NA NV NTIME DYSH MPI_ON USE_AIVLIB_MODEL USE_DOUBLE
 
 CDEFS := $(foreach f, $(ALL_DEFS), $(if $($f),-D$f=$($f)))
 

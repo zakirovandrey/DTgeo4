@@ -8,9 +8,9 @@
 
 int* mapNodeSize;
 //=============================================
-float* __restrict__ hostKpmlx1; float* __restrict__ hostKpmlx2;
-float* __restrict__ hostKpmly1; float* __restrict__ hostKpmly2;
-float* __restrict__ hostKpmlz1; float* __restrict__ hostKpmlz2;
+ftype* __restrict__ hostKpmlx1; ftype* __restrict__ hostKpmlx2;
+ftype* __restrict__ hostKpmly1; ftype* __restrict__ hostKpmly2;
+ftype* __restrict__ hostKpmlz1; ftype* __restrict__ hostKpmlz2;
 GeoParamsHost parsHost;
 __constant__ GeoParams pars;
 __constant__ uint32_t drop_cells[Ns*NDT*Nwarps];
@@ -21,7 +21,7 @@ __constant__ ftype Kpmly1[(KNpmly==0)?1:KNpmly];
 __constant__ ftype Kpmly2[(KNpmly==0)?1:KNpmly];
 __constant__ ftype Kpmlz1[(KNpmlz==0)?1:KNpmlz];
 __constant__ ftype Kpmlz2[(KNpmlz==0)?1:KNpmlz];
-//__shared__ float2 shared_fld[2][7][Nz];
+//__shared__ ftype2 shared_fld[2][7][Nz];
 //__shared__ ftype2 shared_fld[(FTYPESIZE*Nv*28>0xc000)?7:14][Nv];
 __shared__ ftype2 shared_fld[14][Nv];
 texture<char, cudaTextureType3D> index_tex;

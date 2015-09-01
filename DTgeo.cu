@@ -53,8 +53,8 @@ extern texture<float  , cudaTextureType3D, cudaReadModeElementType> layerRefV;
 extern texture<float  , cudaTextureType3D, cudaReadModeElementType> layerRefT;
 #endif
 texture<coffS_t, cudaTextureType3D, cudaReadModeElementType> ShowRefS;
-texture<float , cudaTextureType3D, cudaReadModeElementType> ShowRefV;
-texture<float , cudaTextureType3D, cudaReadModeElementType> ShowRefT;
+texture<float  , cudaTextureType3D, cudaReadModeElementType> ShowRefV;
+texture<float  , cudaTextureType3D, cudaReadModeElementType> ShowRefT;
 void CreateShowTexModel(){
   if(parsHost.texs.ShowTexBinded) return;
   parsHost.texs.ShowTexBinded=1;
@@ -97,9 +97,10 @@ char* FuncStr[] = {"Sx","Sy","Sz","Tx","Ty","Tz", "Vx", "Vy", "Vz", "I1", "I2", 
 "Index0", "Index1", 
 "h_Si", "h_Tx", "h_Ty", "h_Tz", "h_Vx", "h_Vy", "h_Vz" };
 __device__ float pow2(float v) { return v*v; }
+__device__ double pow2(double v) { return v*v; }
 #define MXW_DRAW_ANY(val) *pbuf = val;
 __global__ void mxw_draw(float* buf) {
-  const float d3=1./3; float val=0;
+  const ftype d3=1./3; ftype val=0;
   int iz=threadIdx.x;
   DiamondRag* p=&pars.get_plaster(blockIdx.x,blockIdx.y);
   ModelRag* index=&pars.get_index(blockIdx.x,blockIdx.y);
@@ -303,7 +304,7 @@ double PMLgamma_funcZ(int i, int N, ftype dstep){ //return 0;
   double x = x_max-i*(x_max/N);
   return pow(x, attenuation_factor);
 }
-void setPMLcoeffs(float* k1x, float* k2x, float* k1y, float* k2y, float* k1z, float* k2z) {
+void setPMLcoeffs(ftype* k1x, ftype* k2x, ftype* k1y, ftype* k2y, ftype* k1z, ftype* k2z) {
   for(int i=0; i<KNpmlx; i++){
     k2x[i] = 1.0/(1.0+0.5*dt*PMLgamma_func(KNpmlx/2-abs(i-KNpmlx/2)-3, KNpmlx/2-3, dx));
     k1x[i] = 2.0*k2x[i]-1;
@@ -451,18 +452,18 @@ void GeoParamsHost::set(){
 
 void init_index() {
   //-------Set PML coeffs----------------------------//
-  hostKpmlx1 = new float[KNpmlx]; hostKpmlx2 = new float[KNpmlx];
-  hostKpmly1 = new float[KNpmly]; hostKpmly2 = new float[KNpmly];
-  hostKpmlz1 = new float[KNpmlz]; hostKpmlz2 = new float[KNpmlz];
+  hostKpmlx1 = new ftype[KNpmlx]; hostKpmlx2 = new ftype[KNpmlx];
+  hostKpmly1 = new ftype[KNpmly]; hostKpmly2 = new ftype[KNpmly];
+  hostKpmlz1 = new ftype[KNpmlz]; hostKpmlz2 = new ftype[KNpmlz];
   setPMLcoeffs(hostKpmlx1, hostKpmlx2, hostKpmly1, hostKpmly2, hostKpmlz1, hostKpmlz2);
   for(int idev=0; idev<NDev; idev++) {
     CHECK_ERROR( cudaSetDevice(idev) );
-    CHECK_ERROR( cudaMemcpyToSymbol(Kpmlx1, hostKpmlx1, sizeof(float)*KNpmlx) );
-    CHECK_ERROR( cudaMemcpyToSymbol(Kpmlx2, hostKpmlx2, sizeof(float)*KNpmlx) );
-    CHECK_ERROR( cudaMemcpyToSymbol(Kpmly1, hostKpmly1, sizeof(float)*KNpmly) );
-    CHECK_ERROR( cudaMemcpyToSymbol(Kpmly2, hostKpmly2, sizeof(float)*KNpmly) );
-    CHECK_ERROR( cudaMemcpyToSymbol(Kpmlz1, hostKpmlz1, sizeof(float)*KNpmlz) );
-    CHECK_ERROR( cudaMemcpyToSymbol(Kpmlz2, hostKpmlz2, sizeof(float)*KNpmlz) );
+    CHECK_ERROR( cudaMemcpyToSymbol(Kpmlx1, hostKpmlx1, sizeof(ftype)*KNpmlx) );
+    CHECK_ERROR( cudaMemcpyToSymbol(Kpmlx2, hostKpmlx2, sizeof(ftype)*KNpmlx) );
+    CHECK_ERROR( cudaMemcpyToSymbol(Kpmly1, hostKpmly1, sizeof(ftype)*KNpmly) );
+    CHECK_ERROR( cudaMemcpyToSymbol(Kpmly2, hostKpmly2, sizeof(ftype)*KNpmly) );
+    CHECK_ERROR( cudaMemcpyToSymbol(Kpmlz1, hostKpmlz1, sizeof(ftype)*KNpmlz) );
+    CHECK_ERROR( cudaMemcpyToSymbol(Kpmlz2, hostKpmlz2, sizeof(ftype)*KNpmlz) );
   }
   CHECK_ERROR( cudaSetDevice(0) );
   //-----------------------------------------------------------------------------------//

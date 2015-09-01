@@ -15,7 +15,7 @@ struct Sensor{
     if (pFile==NULL) { printf("Error openning file %s\n", fname); exit(-1); }
   }
   void write(int device=0){/*
-    Cell val; float fval;
+    Cell val; ftype fval;
     if(device) { CHECK_ERROR( cudaMemcpy(&val, &parsHost.cells[IndexTILED(x,y).x], sizeof(Cell), cudaMemcpyDeviceToHost) ); CHECK_ERROR(cudaDeviceSynchronize()); }
     else val = parsHost.data[IndexTILED(x,y).x];
     if(fld=="Ex") fval = val.Ex[z]; else

@@ -1,27 +1,27 @@
 #ifndef DEFS_H
 #define DEFS_H
-const float p9d8 = 9./8.;
-const float m1d24=-1./24.;
-const float p27= 27.;
-const float dtdxd24 = dt/dx/24.;
-const float dtdyd24 = dt/dy/24.;
-const float dtdzd24 = dt/dz/24.;
+const ftype p9d8 = 9./8.;
+const ftype m1d24=-1./24.;
+const ftype p27= 27.;
+const ftype dtdxd24 = dt/dx/24.;
+const ftype dtdyd24 = dt/dy/24.;
+const ftype dtdzd24 = dt/dz/24.;
 #if SquareGrid==1
-const float dtdrd24 = dt/dr/24.;
+const ftype dtdrd24 = dt/dr/24.;
 #else
-const float dtdrd24 = 1.0;
+const ftype dtdrd24 = 1.0;
 #endif
-const float drdt24 = dr/dt*24.;
+const ftype drdt24 = dr/dt*24.;
 
-extern float* __restrict__ hostKpmlx1; extern float* __restrict__ hostKpmlx2;
-extern float* __restrict__ hostKpmly1; extern float* __restrict__ hostKpmly2;
-extern float* __restrict__ hostKpmlz1; extern float* __restrict__ hostKpmlz2;
-extern __constant__ float Kpmlx1[(KNpmlx==0)?1:KNpmlx];
-extern __constant__ float Kpmlx2[(KNpmlx==0)?1:KNpmlx];
-extern __constant__ float Kpmly1[(KNpmly==0)?1:KNpmly];
-extern __constant__ float Kpmly2[(KNpmly==0)?1:KNpmly];
-extern __constant__ float Kpmlz1[(KNpmlz==0)?1:KNpmlz];
-extern __constant__ float Kpmlz2[(KNpmlz==0)?1:KNpmlz];
+extern ftype* __restrict__ hostKpmlx1; extern ftype* __restrict__ hostKpmlx2;
+extern ftype* __restrict__ hostKpmly1; extern ftype* __restrict__ hostKpmly2;
+extern ftype* __restrict__ hostKpmlz1; extern ftype* __restrict__ hostKpmlz2;
+extern __constant__ ftype Kpmlx1[(KNpmlx==0)?1:KNpmlx];
+extern __constant__ ftype Kpmlx2[(KNpmlx==0)?1:KNpmlx];
+extern __constant__ ftype Kpmly1[(KNpmly==0)?1:KNpmly];
+extern __constant__ ftype Kpmly2[(KNpmly==0)?1:KNpmly];
+extern __constant__ ftype Kpmlz1[(KNpmlz==0)?1:KNpmlz];
+extern __constant__ ftype Kpmlz2[(KNpmlz==0)?1:KNpmlz];
 
 template<class Ph, class Pd> static void copy2dev(Ph &hostP, Pd &devP) {
   for(int i=0; i<NDev; i++) {
@@ -134,9 +134,9 @@ extern __shared__ ftype2 shared_fld[14][Nv];
   const int Kpml_iy=get_pml_iy(iy)*NDT*2+NDT-1; int Kpml_ix=0;\
   int it=t0; ftype difx[100],dify[100],difz[100]; ftype zerov=0.;\
   register ftype  coffV = defCoff::drho*dtdrd24, coffT=defCoff::Vs*defCoff::Vs*defCoff::rho*dtdrd24; \
-  register coffS_t coffS = DEF_COFF_S;\
+  register coffS_tp coffS = DEF_COFF_S;\
   register ftype ArrcoffV[100], ArrcoffT[100];\
-  register coffS_t ArrcoffS[100];\
+  register coffS_tp ArrcoffS[100];\
   int I; register htype h[100];\
   ftype2 regPml; ftype regPml2; \
   ftype2 reg_fldV[250], reg_fldS[250]; ftype reg_R;\
