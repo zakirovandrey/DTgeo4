@@ -23,7 +23,7 @@ __constant__ ftype Kpmlz1[(KNpmlz==0)?1:KNpmlz];
 __constant__ ftype Kpmlz2[(KNpmlz==0)?1:KNpmlz];
 //__shared__ ftype2 shared_fld[2][7][Nz];
 //__shared__ ftype2 shared_fld[(FTYPESIZE*Nv*28>0xc000)?7:14][Nv];
-__shared__ ftype2 shared_fld[14][Nv];
+__shared__ ftype2 shared_fld[SHARED_SIZE][Nv];
 texture<char, cudaTextureType3D> index_tex;
 cudaArray* index_texArray=0;
 

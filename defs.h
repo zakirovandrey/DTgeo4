@@ -116,7 +116,7 @@ __device__ inline int Vrefl(const int iz, const int incell=0) {
 struct __align__(16) ftype8 { ftype4 u, v; };
 //extern __shared__ ftypr2 shared_fld[2][7][Nv];
 //extern __shared__ ftype2 shared_fld[(FTYPESIZE*Nv*28>0xc000)?7:14][Nv];
-extern __shared__ ftype2 shared_fld[14][Nv];
+extern __shared__ ftype2 shared_fld[SHARED_SIZE][Nv];
 #ifdef DROP_ONLY_V
 #define DEC_CHUNKS_0 const int chunkSi[]={ 0,2}, chunkTx[]={0,0}, chunkTy[]={0,0}, chunkTz[]={0,0}, chunkVx[]={0,0}, chunkVy[]={0,0}, chunkVz[]={0,0};
 #define DEC_CHUNKS_1 const int chunkSi[]={-1,0}, chunkTx[]={0,0}, chunkTy[]={0,0}, chunkTz[]={0,0}, chunkVx[]={0,0}, chunkVy[]={0,0}, chunkVz[]={0,0};

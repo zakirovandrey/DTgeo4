@@ -19,6 +19,7 @@ typedef float ftype;
 #define USE_WINDOW
 //#define COFFS_DEFAULT
 //#define CLICK_BOOM
+#define SHARED_SIZE 14
 
 #define DROP_ONLY_V
 
