@@ -120,9 +120,15 @@ extern __shared__ ftype2 shared_fld[SHARED_SIZE][Nv];
 #ifdef DROP_ONLY_V
 #define DEC_CHUNKS_0 const int chunkSi[]={ 0,2}, chunkTx[]={0,0}, chunkTy[]={0,0}, chunkTz[]={0,0}, chunkVx[]={0,0}, chunkVy[]={0,0}, chunkVz[]={0,0};
 #define DEC_CHUNKS_1 const int chunkSi[]={-1,0}, chunkTx[]={0,0}, chunkTy[]={0,0}, chunkTz[]={0,0}, chunkVx[]={0,0}, chunkVy[]={0,0}, chunkVz[]={0,0};
+#define DEC_CHANNEL_PTR\
+  channelSx = pars.drop.channelAddr[0], channelSy = pars.drop.channelAddr[1], channelSz = pars.drop.channelAddr[2];
 #else 
 #define DEC_CHUNKS_0 const int chunkSi[]={ 0,2}, chunkTx[]={0,3}, chunkTy[]={1,3}, chunkTz[]={0,3}, chunkVx[]={2,4}, chunkVy[]={1,4}, chunkVz[]={2,4};
 #define DEC_CHUNKS_1 const int chunkSi[]={-1,0}, chunkTx[]={0,0}, chunkTy[]={0,1}, chunkTz[]={0,0}, chunkVx[]={1,2}, chunkVy[]={0,0}, chunkVz[]={1,2};
+#define DEC_CHANNEL_PTR\
+  channelSx = pars.drop.channelAddr[0]; channelSy = pars.drop.channelAddr[1]; channelSz = pars.drop.channelAddr[2];\
+  channelTx = pars.drop.channelAddr[3]; channelTy = pars.drop.channelAddr[4]; channelTz = pars.drop.channelAddr[5];\
+  channelVx = pars.drop.channelAddr[6]; channelVy = pars.drop.channelAddr[7]; channelVz = pars.drop.channelAddr[8];
 #endif
 #define REG_DEC(EVENTYPE) \
   const int iy=y0+blockIdx.x;\
@@ -148,13 +154,12 @@ extern __shared__ ftype2 shared_fld[SHARED_SIZE][Nv];
 \
   int glob_ix = (ix+pars.GPUx0+NS-pars.wleft)%NS+pars.wleft;\
   DEC_CHUNKS_##EVENTYPE;\
-  ftype *channelSx = pars.drop.channelAddr[0], *channelSy = pars.drop.channelAddr[1], *channelSz = pars.drop.channelAddr[2],\
-        *channelTx = pars.drop.channelAddr[3], *channelTy = pars.drop.channelAddr[4], *channelTz = pars.drop.channelAddr[5],\
-        *channelVx = pars.drop.channelAddr[6], *channelVy = pars.drop.channelAddr[7], *channelVz = pars.drop.channelAddr[8];\
+  ftype *channelSx=0, *channelSy=0, *channelSz=0, *channelTx=0, *channelTy=0, *channelTz=0, *channelVx=0,*channelVy=0,*channelVz=0;\
   int ymC=0,ymM=0,ymP=0;\
   const int idevC=get_idev(iy  ,ymC); \
   const int idevM=get_idev(iy-1,ymM); \
   const int idevP=get_idev(iy+1,ymP); \
+  if(idevC==0) { DEC_CHANNEL_PTR }\
   int y_tmp=0; const int curDev=get_idev(y0, y_tmp); \
   const int dStepRagC=NStripe(idevC);\
   const int dStepRagM=NStripe(idevM);\

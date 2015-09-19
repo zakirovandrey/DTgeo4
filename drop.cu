@@ -125,7 +125,7 @@ struct SeismoDrops {
   void dump(){
     DEBUG_PRINT(("dump channel data to file node=%d\n",node));
     #ifdef MPI_ON
-    for(int i=0;i<NDRP;i++) MPI_File_write_shared(file[i], channelHost[i], offset[i], MPI_FLOAT, &status);
+    for(int i=0;i<NDRP;i++) MPI_File_write_shared(file[i], channelHost[i], offset[i], MPI_FTYPE, &status);
     #else
     for(int i=0;i<NDRP;i++) fwrite(channelHost[i], sizeof(ftype), offset[i], file[i]);
     #endif
