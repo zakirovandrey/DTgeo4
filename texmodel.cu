@@ -51,7 +51,7 @@ void ModelTexs::init(){
     #else
     // My own texN
     texN[ind].x  = Np/2+1;
-    texN[ind].y  = Nz/8+1;
+    texN[ind].y  = Nz/32+1;
     texN[ind].z  = Nh  ;
     tex0[ind]  = 0     ;//in_Yee_cells
     texStep[ind]  = 3.0;//in_Yee_cells

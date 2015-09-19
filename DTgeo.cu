@@ -326,8 +326,10 @@ void GeoParamsHost::set(){
 
   int node=0, Nprocs=1;
   #ifdef MPI_ON
-  MPI_Comm_rank (MPI_COMM_WORLD, &node);
-  MPI_Comm_size (MPI_COMM_WORLD, &Nprocs);
+  MPI_Comm_rank (MPI_COMM_WORLD, &node);   node/= NasyncNodes;
+  MPI_Comm_size (MPI_COMM_WORLD, &Nprocs); 
+  if(Nprocs%NasyncNodes!=0) { printf("Error: mpi procs must be dividable by NasyncNodes\n"); exit(-1); }
+  Nprocs/= NasyncNodes;
   #endif
   mapNodeSize = new int[Nprocs];
   int accSizes=0;
@@ -507,6 +509,16 @@ int Tsteps=10*Ntime;
 int _main(int argc, char** argv) {
   #ifdef MPI_ON
   MPI_Init(&argc,&argv);
+  /*int ismpith;
+  MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &ismpith);
+  switch(ismpith) {
+    case MPI_THREAD_SINGLE:     printf("MPI multithreading implementation MPI_TREAD_SINGLE\n"); break;
+    case MPI_THREAD_FUNNELED:   printf("MPI multithreading implementation MPI_TREAD_FUNNELED\n"); break;
+    case MPI_THREAD_SERIALIZED: printf("MPI multithreading implementation MPI_THREAD_SERIALIZED\n"); break;
+    case MPI_THREAD_MULTIPLE:   printf("MPI multithreading implementation MPI_THREAD_MULTIPLE\n"); break;
+    default: printf("Unknown MPI multithreading implementation\n"); break;
+  }
+  if (ismpith != MPI_THREAD_MULTIPLE) { printf("Error: MPI implementation does not support multithreading\n"); MPI_Abort(MPI_COMM_WORLD, 1); }*/
   #endif
   argv ++; argc --;
   im3DHost.reset();
@@ -529,7 +541,7 @@ int _main(int argc, char** argv) {
     printf("par: %s; vals: %s\n", argv[0], argv[1]);
     argv +=2; argc -=2;
   };
-  im2D.get_device(3,0);
+  im2D.get_device(2,0);
   if(test_only) printf("No GL\n");
   else printf("With GL\n");
 try {
@@ -570,7 +582,7 @@ try {
   CreateShowTexModel();
   CHECK_ERROR( cudaMemset(parsHost.arr4im.Arr3Dbuf,0,((long long int)Nx)*Ny*Nz*sizeof(ftype)) ); mxw_draw<<<dim3((USE_UVM==2)?Np:Ns,Na),NT>>>(parsHost.arr4im.Arr3Dbuf);
   cudaDeviceSynchronize(); CHECK_ERROR( cudaGetLastError() );
-  im2D.get_device(3,0);
+  im2D.get_device(2,0);
   im2D.init_image(argc,argv, im3DHost.bNx, im3DHost.bNy, "im3D");
   im3DHost.init3D(parsHost.arr4im); im3DHost.iz0=Nx-1; im3DHost.key_func('b',0,0);
 

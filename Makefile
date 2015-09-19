@@ -52,9 +52,11 @@ INCLUDES  := -I/usr/mpi/gcc/openmpi-1.4.2-qlc/include/ -I./png/
 LIBRARIES := -lmpi -lcudart -lglut -lGL -lcufft -lpng -lgomp -lpthread
 else ifeq ($(ARCH),geocluster)
 INCLUDES  := -I/usr/mpi/gcc/mvapich-1.2.0/include/
-LIBRARIES := -lcudart -lglut -lGL -lcufft -lpng -lgomp -lpthread -lpyaiv2
+LIBRARIES := -lcudart -lGL -lcufft -lpng -lgomp -lpthread -lpyaiv2
 ifdef MPI_ON
 LIBRARIES := -mpich $(LIBRARIES)
+else
+LIBRARIES := -lglut $(LIBRARIES)
 endif
 else
 INCLUDES  := 

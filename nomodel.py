@@ -1,11 +1,13 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+
+from ctypes import *
+#mpi = CDLL('libmpi.so.0', RTLD_GLOBAL)
+#mpi = CDLL('/usr/lib64/mpich2/lib/libmpich.so.1.2', RTLD_GLOBAL)
+
 from math import *
 import sys
 import os
-from ctypes import *
-#mpi=CDLL('libmpi.so.1',RTLD_GLOBAL)
-mpi=CDLL('libmpich.so',RTLD_GLOBAL)
 import DTgeo
 GridNx = DTgeo.cvar.GridNx
 GridNy = DTgeo.cvar.GridNy
@@ -23,7 +25,7 @@ SM.Vp=2.6; SM.Vs=1.5; SM.sigma=2.3 # the same as defCoff in texmodel.cuh
 SS = DTgeo.cvar.shotpoint
 SS.F0=0.03;
 SS.gauss_waist=0.5;
-SS.Ampl=0.0;
+SS.Ampl=1.0;
 SS.srcXs, SS.srcXv, SS.srcXa = SrcCoords_LOC[0],SrcCoords_LOC[1],SrcCoords_LOC[2];
 SS.BoxMs, SS.BoxPs = SS.srcXs-4.1*dx, SS.srcXs+4.1*dx; 
 SS.BoxMa, SS.BoxPa = SS.srcXa-4.1*dz, SS.srcXa+4.1*dz; 

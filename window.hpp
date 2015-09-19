@@ -5,6 +5,21 @@ using namespace std;
 //void set_texture(int* index_arr, const int ix);
 void set_texture(const int ix);
 
+struct __align__(32) mpi_message {
+#ifdef MPI_ON
+  pthread_t mpith;
+  void* buf;
+  int count;
+  MPI_Datatype datatype;
+  int dest;
+  int tag;
+  MPI_Comm comm;
+  void set(void* p,int sz,MPI_Datatype tp,int rnk,int _tag,MPI_Comm world){
+    buf=p; count=sz; datatype=tp; dest=rnk; tag=_tag; comm=world;
+  }
+#endif
+};
+
 struct Window {
   static const int NTorres=1;
   int x0, w0, ix4copy;
@@ -17,7 +32,8 @@ struct Window {
   cudaStream_t streamCopy;
   int tDnum;
   bool doneMemcopy;
-  int node, Nprocs;
+  int node, subnode, Nprocs;
+  static mpi_message mes[8];
   Window(): GPUcalctime(0),RAMcopytime(0),Textime(0),tDnum(0),doneMemcopy(0) { CHECK_ERROR( cudaStreamCreate(&streamCopy) ); for(int idev=0;idev<NDev;idev++) disbal[idev]=0; }
   ~Window() { CHECK_ERROR( cudaStreamDestroy(streamCopy) ); }
   void prepare(){
@@ -25,10 +41,10 @@ struct Window {
     if(Ns-Ntime<2*NTorres) { printf("Error: Ns-Ntime<2*NTorres | %d-%d<2*%d \n", Ns,Ntime,NTorres); exit(-1); }
     if(Np%Ns!=0) { printf("Error: Np=%d must be dividable by Ns=%d \n", Np,Ns); exit(-1); }
     if(Ns%NTorres!=0) { printf("Error: Ns=%d must be dividable by NTorres=%d \n", Ns,NTorres); exit(-1); }
-    node=0; Nprocs=1;
+    node=0; subnode=0; Nprocs=1;
     #ifdef MPI_ON
-    MPI_Comm_rank (MPI_COMM_WORLD, &node);
-    MPI_Comm_size (MPI_COMM_WORLD, &Nprocs);
+    MPI_Comm_rank (MPI_COMM_WORLD, &node);   subnode = node%NasyncNodes; node/= NasyncNodes;
+    MPI_Comm_size (MPI_COMM_WORLD, &Nprocs); Nprocs/= NasyncNodes;
     #endif
     dataInd  = parsHost.dataInd;
     data     = parsHost.data;
@@ -54,6 +70,13 @@ struct Window {
   void calcDtorres(const int nL=0, const int nR=Np, const bool isOnlyMemcopyDtH=false, const bool isOnlyMemcopyHtD=false) { 
     double t0=omp_get_wtime();
     DEBUG_MPI(("CalcDtorres OnlyMemcopyDtH=%d  OnlyMemcopyHtD=%d (node %d) wleft=%d\n", isOnlyMemcopyDtH, isOnlyMemcopyHtD, node, parsHost.wleft));
+    pthread_t tid = pthread_self();
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset); for(int j=6; j<12; j++) CPU_SET(j, &cpuset);
+    //int s0 = pthread_setaffinity_np(tid, sizeof(cpu_set_t), &cpuset);
+    //int s1 = pthread_getaffinity_np(tid, sizeof(cpu_set_t), &cpuset);
+    //printf("    CPU "); for (int j=0; j<CPU_SETSIZE; j++) if(CPU_ISSET(j, &cpuset)) printf(" %d", j); printf("\n");
+    
     for(int itorre=0; itorre<NTorres; itorre++) {
       doneMemcopy=false;
       int iw=w0-itorre;
