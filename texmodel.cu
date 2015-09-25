@@ -95,6 +95,7 @@ void ModelTexs::init(){
     #elif ANISO_TR==1 || ANISO_TR==2 || ANISO_TR==3
     HostLayerTi[ind] = new float  [texNx*texNy*texNh]; //get pointer from aivModel
     HostLayerTa[ind] = new float  [texNx*texNy*texNh]; //get pointer from aivModel
+    HostLayerT[ind] = HostLayerTa[ind];
     #endif
     for(int idev=0;idev<NDev;idev++) { CHECK_ERROR( cudaSetDevice(idev) ); 
     channelDesc = cudaCreateChannelDesc<coffS_t>(); CHECK_ERROR( cudaMalloc3DArray(&DevLayerS[idev][ind], &channelDesc, make_cudaExtent(texNy,texNh,texNwindow)) );
@@ -118,6 +119,21 @@ void ModelTexs::init(){
         ftype C44=Vs*Vs, C66=Vs*Vs, C55=Vs*Vs;
         #ifdef USE_AIVLIB_MODEL
         GeoPhysPar p = get_texture_cell(ix,iy,ih-((ih==texNh)?1:0)); Vp=p.Vp; Vs=p.Vs; rho=p.sigma; drho=1.0/rho;
+
+        ftype Vp_q = Vp, Vs_q1 = Vs, Vs_q2 = Vs;
+        //------Anisotropy flag-------//
+//        if(rho<0) { rho = -rho; Vp_q = p.Vp_q; Vs_q1 = p.Vs_q1; Vs_q2 = p.Vs_q2; }
+        ftype eps = 0, delta = 0, gamma = 0;
+        eps   = Vp_q /Vp-1;
+        delta = Vs_q1/Vs-1;
+        gamma = Vs_q2/Vs-1
+
+        ftype xx = rho*Vp*Vp;
+        ftype yy = rho*(-Vs*Vs+sqrt((Vp*Vp-Vs*Vs)*(Vp*Vp*(1+2*delta)-Vs*Vs)));
+        ftype zz = (2*eps+1)*rho*Vp*Vp - (2*gamma+1)*2*rho*Vs*Vs;
+        ftype ww = (2*eps+1)*rho*Vp*Vp;
+        ftype ii = rho*Vs*Vs;
+        ftype aa = (2*gamma+1)*rho*Vs*Vs;
         //C11,C12,C13;
         //C21,C22,C23;
         //C31,C32,C33;
@@ -131,14 +147,17 @@ void ModelTexs::init(){
         HostLayerS[ind][ix*texNy*texNh+ih*texNy+iy] = make_float2( Vp*Vp, Vp*Vp-2*Vs*Vs )*rho;
         HostLayerT[ind][ix*texNy*texNh+ih*texNy+iy] = Vs*Vs*rho;
         #elif ANISO_TR==1
+        C11 = xx; C12 = yy; C23 = zz; C22 = ww; C44 = aa; C55 = ii;
         HostLayerS[ind][ix*texNy*texNh+ih*texNy+iy] = make_float4( C11, C12, C23, C22 )*rho;
         HostLayerTa[ind][ix*texNy*texNh+ih*texNy+iy] = C44*rho;
         HostLayerTi[ind][ix*texNy*texNh+ih*texNy+iy] = C55*rho;
         #elif ANISO_TR==2
+        C22 = xx; C12 = yy; C13 = zz; C11 = ww; C55 = aa; C44 = ii;
         HostLayerS[ind][ix*texNy*texNh+ih*texNy+iy] = make_float4( C22, C12, C13, C11 )*rho;
         HostLayerTa[ind][ix*texNy*texNh+ih*texNy+iy] = C55*rho;
         HostLayerTi[ind][ix*texNy*texNh+ih*texNy+iy] = C44*rho;
         #elif ANISO_TR==3
+        C33 = xx; C13 = yy; C12 = zz; C11 = ww; C66 = aa; C44 = ii;
         HostLayerS[ind][ix*texNy*texNh+ih*texNy+iy] = make_float4( C33, C13, C12, C11 )*rho;
         HostLayerTa[ind][ix*texNy*texNh+ih*texNy+iy] = C66*rho;
         HostLayerTi[ind][ix*texNy*texNh+ih*texNy+iy] = C44*rho;
