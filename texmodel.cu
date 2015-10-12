@@ -60,10 +60,14 @@ void ModelTexs::init(){
     texStep[ind]  = Np*3.0/(texN[ind].x-1);//in_Yee_cells
 
     int texNwindow = int(ceil(Ns*NDT/texStep[ind])+2);
-    texStretchHost[ind].x = 1.0/(2*texStep[ind]*texNwindow);
+    texStretchHost[ind].x = 1.0/(2.0*texStep[ind]*texNwindow);
     texStretchHost[ind].y = 1.0/(2*Nz)*(texN[ind].y-1)/texN[ind].y;
-    texShiftHost[ind].x = 1.0/(2*texNwindow);
-    texShiftHost[ind].y = 1.0/(2*texN[ind].y);
+    texShiftHost[ind].x = 1.0/(2.0*texNwindow);
+    texShiftHost[ind].y = 1.0/(2.0*texN[ind].y);
+/*    texStretchHost[ind].x = 1.0/(2.0*texStep[ind]);
+    texStretchHost[ind].y = 1.0/(2*Nz)*(texN[ind].y-1);
+    texShiftHost[ind].x = 0.5;//texN[ind].x/(2.0*texNwindow);
+    texShiftHost[ind].y = 0.5;*/
     texsize_onhost+= texN[ind].x*texN[ind].y*texN[ind].z;
     texsize_ondevs+= texNwindow*texN[ind].y*texN[ind].z;
     if(node==0) printf("Texture%d Size %dx%dx%d (Nx x Ny x Nh)\n", ind, texN[ind].x, texN[ind].y, texN[ind].z);
@@ -72,9 +76,12 @@ void ModelTexs::init(){
   }
   float2 texStretchShowHost = make_float2(1.0/(2*NDT*Np)*(texN[0].x-1)/texN[0].x, 0.);
   float2 texShiftShowHost   = make_float2(1./(2*texN[0].x), 0.);
+//  float2 texStretchShowHost = make_float2(1.0/(2*NDT*Np)*(texN[0].x-1), 0.);
+//  float2 texShiftShowHost   = make_float2(0.5, 0.);
   for(int i=0; i<NDev; i++) {
     CHECK_ERROR( cudaSetDevice(i) );
-    h_scale = 2*((1<<16)/(2*texN[0].z)); const float texStretchH_host = 1.0/(texN[0].z*h_scale);
+    h_scale = 2*((1<<30)/(2*texN[0].z)); const float texStretchH_host = 1.0/(texN[0].z*h_scale);
+    //h_scale = 2*((1<<30)/(2*texN[0].z)); const float texStretchH_host = 1.0/h_scale;
     CHECK_ERROR( cudaMemcpyToSymbol(texStretchH   ,&texStretchH_host, sizeof(float), 0, cudaMemcpyHostToDevice) );
     CHECK_ERROR( cudaMemcpyToSymbol(texStretch    , texStretchHost, sizeof(float2)*Ntexs, 0, cudaMemcpyHostToDevice) );
     CHECK_ERROR( cudaMemcpyToSymbol(texShift      , texShiftHost  , sizeof(float2)*Ntexs, 0, cudaMemcpyHostToDevice) );
@@ -97,7 +104,8 @@ void ModelTexs::init(){
     HostLayerTa[ind] = new float  [texNx*texNy*texNh]; //get pointer from aivModel
     HostLayerT[ind] = HostLayerTa[ind];
     #endif
-    for(int idev=0;idev<NDev;idev++) { CHECK_ERROR( cudaSetDevice(idev) ); 
+    for(int idev=0;idev<NDev;idev++) { CHECK_ERROR( cudaSetDevice(idev) );
+    printf("texNwindow=%d\n",texNwindow); 
     channelDesc = cudaCreateChannelDesc<coffS_t>(); CHECK_ERROR( cudaMalloc3DArray(&DevLayerS[idev][ind], &channelDesc, make_cudaExtent(texNy,texNh,texNwindow)) );
     channelDesc = cudaCreateChannelDesc<float  >(); CHECK_ERROR( cudaMalloc3DArray(&DevLayerV[idev][ind], &channelDesc, make_cudaExtent(texNy,texNh,texNwindow)) );
     #ifndef ANISO_TR
@@ -118,22 +126,27 @@ void ModelTexs::init(){
         ftype C21=Vp*Vp-2*Vs*Vs, C23=Vp*Vp-2*Vs*Vs, C22=Vp*Vp;
         ftype C44=Vs*Vs, C66=Vs*Vs, C55=Vs*Vs;
         #ifdef USE_AIVLIB_MODEL
-        GeoPhysPar p = get_texture_cell(ix,iy,ih-((ih==texNh)?1:0)); Vp=p.Vp; Vs=p.Vs; rho=p.sigma; drho=1.0/rho;
+        //GeoPhysPar p = get_texture_cell(ix,iy,ih-((ih==texNh)?1:0)); Vp=p.Vp; Vs=p.Vs; rho=p.sigma; drho=1.0/rho;
+        GeoPhysParAniso p = get_texture_cell_aniso(ix,iy,ih-((ih==texNh)?1:0)); Vp=p.Vp; Vs=p.Vs; rho=p.sigma; drho=1.0/rho;
 
         ftype Vp_q = Vp, Vs_q1 = Vs, Vs_q2 = Vs;
         //------Anisotropy flag-------//
 //        if(rho<0) { rho = -rho; Vp_q = p.Vp_q; Vs_q1 = p.Vs_q1; Vs_q2 = p.Vs_q2; }
+//        ftype eps = 0, delta = 0, gamma = 0;
+//        eps   = Vp_q /Vp-1;
+//        delta = Vs_q1/Vs-1;
+//        gamma = Vs_q2/Vs-1
         ftype eps = 0, delta = 0, gamma = 0;
-        eps   = Vp_q /Vp-1;
-        delta = Vs_q1/Vs-1;
-        gamma = Vs_q2/Vs-1
+        eps   = p.epsilon;
+        delta = p.delta;
+        gamma = p.gamma;
 
-        ftype xx = rho*Vp*Vp;
-        ftype yy = rho*(-Vs*Vs+sqrt((Vp*Vp-Vs*Vs)*(Vp*Vp*(1+2*delta)-Vs*Vs)));
-        ftype zz = (2*eps+1)*rho*Vp*Vp - (2*gamma+1)*2*rho*Vs*Vs;
-        ftype ww = (2*eps+1)*rho*Vp*Vp;
-        ftype ii = rho*Vs*Vs;
-        ftype aa = (2*gamma+1)*rho*Vs*Vs;
+        ftype xx = Vp*Vp;
+        ftype yy = (-Vs*Vs+sqrt((Vp*Vp-Vs*Vs)*(Vp*Vp*(1+2*delta)-Vs*Vs)));
+        ftype zz = (2*eps+1)*Vp*Vp - (2*gamma+1)*2*Vs*Vs;
+        ftype ww = (2*eps+1)*Vp*Vp;
+        ftype ii = Vs*Vs;
+        ftype aa = (2*gamma+1)*Vs*Vs;
         //C11,C12,C13;
         //C21,C22,C23;
         //C31,C32,C33;
@@ -185,6 +198,7 @@ void ModelTexs::init(){
     delete rhoArr;
   }
   printf("\n");
+
   for(int idev=0;idev<NDev;idev++) { CHECK_ERROR( cudaSetDevice(idev) ); 
   CHECK_ERROR( cudaMemcpy(layerS [idev], layerS_host [idev], sizeof(cudaTextureObject_t)*Ntexs, cudaMemcpyHostToDevice) );
   CHECK_ERROR( cudaMemcpy(layerV [idev], layerV_host [idev], sizeof(cudaTextureObject_t)*Ntexs, cudaMemcpyHostToDevice) );

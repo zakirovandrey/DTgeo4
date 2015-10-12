@@ -11,8 +11,10 @@
 
 //1 -- many textures, 2 -- one texture, 0 -- one texture reference
 #define TEX_MODEL_TYPE 0
-#define H_MAX_SIZE (USHRT_MAX+1)
-typedef ushort2 htype;
+//#define H_MAX_SIZE (USHRT_MAX+1)
+//#define H_MAX_SIZE (INT_MAX+1)
+#define H_MAX_SIZE (1<<30)
+typedef uint2 htype;
 
 //const float texStretchX=1.0/(2*Ns*NDT);
 //const float texStretchY=1.0/(2*Nz);
@@ -38,12 +40,10 @@ struct __align__(16) ModelRag{
 };
 
 #ifndef ANISO_TR
-typedef float2 coffS_t;
-typedef ftype2 coffS_tp;
-#define DEF_COFF_S make_ftype2(defCoff::Vp*defCoff::Vp*defCoff::rho*dtdrd24, (defCoff::Vp*defCoff::Vp-2*defCoff::Vs*defCoff::Vs)*defCoff::rho*dtdrd24);
+typedef ftype2 coffS_t;
+#define DEF_COFF_S make_float2(defCoff::Vp*defCoff::Vp, defCoff::Vp*defCoff::Vp-2*defCoff::Vs*defCoff::Vs)*defCoff::rho*dtdrd24;
 #elif ANISO_TR==1 || ANISO_TR==2 || ANISO_TR==3
-typedef float4 coffS_t;
-typedef ftype4 coffS_tp;
+typedef ftype4 coffS_t;
 #else // ifndef ANISO_TR
 #error UNKNOWN ANISOTROPY TYPE
 #endif //ANISO_TR
@@ -81,11 +81,11 @@ namespace defCoff {
   const ftype C31 = Vp*Vp-2*Vs*Vs, C32 = Vp*Vp-2*Vs*Vs, C33 = Vp*Vp;
 };
 #if ANISO_TR==1
-#define DEF_COFF_S make_ftype4(defCoff::C11, defCoff::C12, defCoff::C23, defCoff::C22)*defCoff::rho*dtdrd24;
+#define DEF_COFF_S make_float4(defCoff::C11, defCoff::C12, defCoff::C23, defCoff::C22)*defCoff::rho*dtdrd24;
 #elif ANISO_TR==2
-#define DEF_COFF_S make_ftype4(defCoff::C22, defCoff::C12, defCoff::C13, defCoff::C11)*defCoff::rho*dtdrd24;
+#define DEF_COFF_S make_float4(defCoff::C22, defCoff::C12, defCoff::C13, defCoff::C11)*defCoff::rho*dtdrd24;
 #elif ANISO_TR==3
-#define DEF_COFF_S make_ftype4(defCoff::C33, defCoff::C13, defCoff::C12, defCoff::C11)*defCoff::rho*dtdrd24;
+#define DEF_COFF_S make_float4(defCoff::C33, defCoff::C13, defCoff::C12, defCoff::C11)*defCoff::rho*dtdrd24;
 #endif//ANISO_TR
 
 #endif//TEXMODEL_CU

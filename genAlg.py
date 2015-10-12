@@ -244,6 +244,7 @@ class data():
       print "  %s+= SrcSurf_%s%s(glob_ix*2*NDT+(%g), iz*2+(%g), %g+iy*2*NDT, pars.iStep*Ntime+it+%g);"%(self.name, self.typus,'xyz'[self.proj], self.coord[0], self.coord[2], self.coord[1], time)
       if self.typus!="S": print "  #ifndef DROP_ONLY_V"
       if self.typus=="S": fval = "%s*0.5625+%s*0.5625-%s*0.0625-%s*0.0625"%tuple(map(lambda n: n.name, self.neigh[self.proj]))
+    #  if self.typus=="S" and self.proj==1: fval = self.neigh[self.proj][0].name
       else: fval = self.name
       if data.PMLS: print "  if(glob_ix*NDT%+d>=0)"%(self.coord[0]/2) 
       print "  dropPP(ix*NDT%+d, %d-chunk%s[0], iz, it, channel%s, %s);"%(

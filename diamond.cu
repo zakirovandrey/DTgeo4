@@ -1,5 +1,7 @@
 #include <stdio.h>
+#include <errno.h>
 #include <omp.h>
+#include <semaphore.h>
 #ifdef MPI_ON
 #include <mpi.h>
 #endif
@@ -28,6 +30,22 @@ texture<char, cudaTextureType3D> index_tex;
 cudaArray* index_texArray=0;
 
 #include "window.hpp"
+struct AsyncMPIexch{
+  int even,ix,t0,Nt,mpirank; bool do_run;
+  sem_t sem_mpi, sem_calc;
+  void exch(const int _even, const int _ix, const int _t0, const int _Nt, const int _mpirank) {
+    even=_even; ix=_ix; t0=_t0; Nt=_Nt, mpirank=_mpirank;
+    if(sem_post(&sem_mpi)<0) printf("exch sem_post error %d\n",errno);
+  }
+  void exch_sync(){ if(sem_wait(&sem_calc)<0) printf("exch_sync sem error %d\n",errno); }
+  void run() {
+    if(sem_wait(&sem_mpi)<0) printf("run sem_wait error %d\n",errno);
+    if(do_run==0) return;
+    if(even==0) for(int ixrag=ix; ixrag<ix+Nt-t0; ixrag++) DiamondRag::SendMPIp(mpirank, ixrag);
+    if(even==1) for(int ixrag=ix; ixrag<ix+Nt-t0; ixrag++) DiamondRag::SendMPIm(mpirank, ixrag);
+    if(sem_post(&sem_calc)<0) printf("run sem_post error %d\n",errno);;
+  }
+} ampi_exch;
 #define IFPMLS(func,a,b,c,d,args) {/*printf(#func" idev=%d ix=%d iym=%d Nblocks=%d\n", idev,ix, iym, a);*/if(isPMLs) PMLS##func<<<a,b,c,d>>>args; else func<<<a,b,c,d>>>args; }
 //#define IFPMLS(func,a,b,c,d,args) { if(!isPMLs) func<<<a,b,c,d>>>args; }
 //#define IFPMLS(func,a,b,c,d,args) func<<<a,b,c,d>>>args;
@@ -73,11 +91,11 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
   is_X[NDev-1]=1;
   Sy=iym; SyBlk=Nblk; Xy=iyp;
   if(subnode!=0) {
-    is_I[0]=0; is_P[0]=1;
+    is_I[0]=0; if(even==1) is_P[0]=1;
   }
   if(subnode!=NasyncNodes-1) {
-    is_X[NDev-1]=0; is_P[NDev-1]=1; 
-    //TODO disable is_S for all except NDev-1///
+    is_X[NDev-1]=0; if(even==0) is_P[NDev-1]=1; 
+    is_S[NDev-1]=0; DmBlk[NDev-1]+=SyBlk;
   }
 
   for(int idev=0; idev<NDev; idev++) {
@@ -141,11 +159,12 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
     if(even==1) MemcopyHtD(ix4copy);
     CHECK_ERROR( cudaStreamSynchronize(streamCopy) ); if(even==1) doneMemcopy=true;
   }
+  CHECK_ERROR( cudaStreamSynchronize(stP   ) );
+  if(NasyncNodes>1) ampi_exch.exch(even, ix, t0, Nt, node*NasyncNodes+subnode);
   if(even==1) parsHost.drop.save(stPMLm);
   CHECK_ERROR( cudaStreamSynchronize(stPMLm) ); 
   CHECK_ERROR( cudaStreamSynchronize(stPMLp) );
   CHECK_ERROR( cudaStreamSynchronize(stX   ) );
-  CHECK_ERROR( cudaStreamSynchronize(stP   ) );
   for(int i=0;i<NDev;i++) CHECK_ERROR( cudaStreamSynchronize(stDo[i]) );
   for(int i=0;i<NDev;i++) { double tt=omp_get_wtime(); CHECK_ERROR( cudaStreamSynchronize(stDm[i]) ); disbal[i]+=omp_get_wtime()-tt; }
   CHECK_ERROR( cudaStreamDestroy(stPMLm) );
@@ -154,11 +173,7 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
   CHECK_ERROR( cudaStreamDestroy(stP   ) ); 
   for(int i=0;i<NDev;i++) CHECK_ERROR( cudaStreamDestroy(stDo[i]) );
   for(int i=0;i<NDev;i++) CHECK_ERROR( cudaStreamDestroy(stDm[i]) );
-
-  #ifdef MPI_ON
-  if(even==0) for(int ixrag=ix; ixrag<ix+Nt-t0; ixrag++) DiamondRag::SendMPIp(subnode, ixrag);
-  if(even==1) for(int ixrag=ix; ixrag<ix+Nt-t0; ixrag++) DiamondRag::SendMPIm(subnode, ixrag);
-  #endif
+  if(NasyncNodes>1) ampi_exch.exch_sync();
 }
 inline void Window::Dtorres(int ix, int Nt, int t0, double disbal[NDev], bool isPMLs, bool isTFSF) {
   Dtorre<0>(ix,Nt,t0,disbal,isPMLs,isTFSF); //cudaDeviceSynchronize(); CHECK_ERROR( cudaGetLastError() );
@@ -236,8 +251,8 @@ int calcStep(){
       #ifdef MPI_TEST
       doSR=0;
       #endif
-      RecvMPI(&window.data    [wleftP*Na   ], doSR*Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, window.node+1, 2+0, MPI_COMM_WORLD, &reqRp    , 2);
-      RecvMPI(&window.dataPMLa[wleftP*Npmly], doSR*Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, window.node+1, 2+1, MPI_COMM_WORLD, &reqRp_pml, 6);
+      RecvMPI(&window.data    [wleftP*Na   ], doSR*Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, (window.node+1)*NasyncNodes+window.subnode, 2+0, MPI_COMM_WORLD, &reqRp    , 2);
+      RecvMPI(&window.dataPMLa[wleftP*Npmly], doSR*Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, (window.node+1)*NasyncNodes+window.subnode, 2+1, MPI_COMM_WORLD, &reqRp_pml, 6);
       #endif
     }
     if(window.node!=0              ) {
@@ -295,10 +310,10 @@ int calcStep(){
       }
       if(parsHost.wleft==nR-Ns-Ns-1 && window.node!=window.Nprocs-1) {
         DEBUG_MPI(("Send&Recv P(%d) (node %d) wleft=%d\n", parsHost.wleft+Ns, window.node, parsHost.wleft));
-        SendMPI(&window.data    [(nR-Ns)*Na   ], doSend[1]*Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, window.node+1, 2+(parsHost.iStep+1)*2+0, MPI_COMM_WORLD, &reqSp    ,0);
-        SendMPI(&window.dataPMLa[(nR-Ns)*Npmly], doSend[1]*Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, window.node+1, 2+(parsHost.iStep+1)*2+1, MPI_COMM_WORLD, &reqSp_pml,4);
-        RecvMPI(&window.data    [(nR-Ns)*Na   ], doRecv[1]*Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, window.node+1, 2+(parsHost.iStep+1)*2+0, MPI_COMM_WORLD, &reqRp    ,2);
-        RecvMPI(&window.dataPMLa[(nR-Ns)*Npmly], doRecv[1]*Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, window.node+1, 2+(parsHost.iStep+1)*2+1, MPI_COMM_WORLD, &reqRp_pml,6);
+        SendMPI(&window.data    [(nR-Ns)*Na   ], doSend[1]*Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, (window.node+1)*NasyncNodes+window.subnode, 2+(parsHost.iStep+1)*2+0, MPI_COMM_WORLD, &reqSp    ,0);
+        SendMPI(&window.dataPMLa[(nR-Ns)*Npmly], doSend[1]*Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, (window.node+1)*NasyncNodes+window.subnode, 2+(parsHost.iStep+1)*2+1, MPI_COMM_WORLD, &reqSp_pml,4);
+        RecvMPI(&window.data    [(nR-Ns)*Na   ], doRecv[1]*Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, (window.node+1)*NasyncNodes+window.subnode, 2+(parsHost.iStep+1)*2+0, MPI_COMM_WORLD, &reqRp    ,2);
+        RecvMPI(&window.dataPMLa[(nR-Ns)*Npmly], doRecv[1]*Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, (window.node+1)*NasyncNodes+window.subnode, 2+(parsHost.iStep+1)*2+1, MPI_COMM_WORLD, &reqRp_pml,6);
       }
       if(doWait && parsHost.wleft==nL+Ns+(Ns-Ntime-1)   && parsHost.iStep!=0) { 
         DEBUG_MPI(("waiting M (node %d) wleft=%d\n", window.node, parsHost.wleft)); 
@@ -316,16 +331,28 @@ int calcStep(){
       #ifdef MPI_TEST
       if(parsHost.iStep-window.node>0)
       #endif
-             #pragma omp task
-      window.calcDtorres(nL,nR, parsHost.wleft<nL && window.node!=0, parsHost.wleft>=nR-Ns && window.node!=window.Nprocs-1);
-             #pragma omp taskwait
+      
+      ampi_exch.do_run=1;
+      if(NasyncNodes>1) { if(sem_init(&ampi_exch.sem_calc, 0,0)==-1) printf("Error semaphore init errno=%d\n", errno);
+                          if(sem_init(&ampi_exch.sem_mpi , 0,0)==-1) printf("Error semaphore init errno=%d\n", errno); }
+      #pragma omp parallel num_threads(2)
+      {
+      if(omp_get_thread_num()==1) {
+        window.calcDtorres(nL,nR, parsHost.wleft<nL && window.node!=0, parsHost.wleft>=nR-Ns && window.node!=window.Nprocs-1);
+        ampi_exch.do_run=0; if(NasyncNodes>1) if(sem_post(&ampi_exch.sem_mpi)<0) printf("sem_post_mpi end error %d\n",errno); 
+      }
+        #pragma omp master
+        if(NasyncNodes>1) { while(ampi_exch.do_run) ampi_exch.run(); if(sem_post(&ampi_exch.sem_calc)<0) printf("sem_post_calc end error %d\n",errno); }
+      }
+      if(NasyncNodes>1) { if(sem_destroy(&ampi_exch.sem_mpi )<0) printf("sem_destroy error %d\n",errno);
+                          if(sem_destroy(&ampi_exch.sem_calc)<0) printf("sem_destroy error %d\n",errno); }
 
       if(parsHost.wleft==nL-Ns-1  && window.node!=0              ) {
         DEBUG_MPI(("Send&Recv M(%d) (node %d) wleft=%d\n", parsHost.wleft+Ns+1, window.node, parsHost.wleft));
-        SendMPI(&window.data    [ nL    *Na   ], doSend[0]*Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, window.node-1, 2+(parsHost.iStep  )*2+0, MPI_COMM_WORLD, &reqSm    ,1);
-        SendMPI(&window.dataPMLa[ nL    *Npmly], doSend[0]*Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, window.node-1, 2+(parsHost.iStep  )*2+1, MPI_COMM_WORLD, &reqSm_pml,5);
-        RecvMPI(&window.data    [ nL    *Na   ], doRecv[0]*Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, window.node-1, 2+(parsHost.iStep+1)*2+0, MPI_COMM_WORLD, &reqRm,    3);
-        RecvMPI(&window.dataPMLa[ nL    *Npmly], doRecv[0]*Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, window.node-1, 2+(parsHost.iStep+1)*2+1, MPI_COMM_WORLD, &reqRm_pml,7);
+        SendMPI(&window.data    [ nL    *Na   ], doSend[0]*Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, (window.node-1)*NasyncNodes+window.subnode, 2+(parsHost.iStep  )*2+0, MPI_COMM_WORLD, &reqSm    ,1);
+        SendMPI(&window.dataPMLa[ nL    *Npmly], doSend[0]*Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, (window.node-1)*NasyncNodes+window.subnode, 2+(parsHost.iStep  )*2+1, MPI_COMM_WORLD, &reqSm_pml,5);
+        RecvMPI(&window.data    [ nL    *Na   ], doRecv[0]*Ns*Na   *sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, (window.node-1)*NasyncNodes+window.subnode, 2+(parsHost.iStep+1)*2+0, MPI_COMM_WORLD, &reqRm,    3);
+        RecvMPI(&window.dataPMLa[ nL    *Npmly], doRecv[0]*Ns*Npmly*sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, (window.node-1)*NasyncNodes+window.subnode, 2+(parsHost.iStep+1)*2+1, MPI_COMM_WORLD, &reqRm_pml,7);
       }
     }
     #endif//BLOCK_SEND
@@ -359,8 +386,8 @@ int calcStep(){
   #ifndef TEST_RATE
   yee_cells = NDT*NDT*Ntime*(unsigned long long)(Nv*Na)*Np;
   overhead = window.RAMcopytime/window.GPUcalctime;
-  printf("Step %d /node %d/: Time %9.09f ms |overhead %3.03f%% |disbalance ", parsHost.iStep, window.node, calcTime, 100*overhead);
-  for(int idev=0;idev<NDev;idev++) printf("%3.03f%% ", 100*window.disbal[idev]/window.GPUcalctime);
+  printf("Step %d /node %d/ subnode %d/: Time %9.09f ms |overhead %3.03f%% | ", parsHost.iStep, window.node, window.subnode, calcTime, 100*overhead);
+//  for(int idev=0;idev<NDev;idev++) printf("%3.03f%% ", 100*window.disbal[idev]/window.GPUcalctime);
   printf("|rate %9.09f GYee_cells/sec |isTFSF=%d \n", 1.e-9*yee_cells/(calcTime*1.e-3), (parsHost.iStep+1)*Ntime*dt<shotpoint.tStop );
   #else
   yee_cells = NDT*NDT*Ntime*(unsigned long long)(Nv*(Na-2))*torreNum;

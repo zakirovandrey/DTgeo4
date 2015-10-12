@@ -21,6 +21,7 @@ typedef double2 ftype2;
 typedef double3 ftype3;
 typedef double4 ftype4;
 template<typename T1,typename T2> __host__ __device__ ftype2 make_ftype2(const T1& f1, const T2& f2) { return make_double2(f1,f2); }
+//template<typename T1,typename T2,typename T3,typename T4> __host__ __device__ ftype4 make_ftype4(const T1& f1, const T2& f2, const T3& f3, const T4& f4) { return make_double4(f1,f2,f3,f4); }
 #else//use float
 typedef float ftype;
 #define MPI_FTYPE MPI_FLOAT
@@ -29,6 +30,7 @@ typedef float2 ftype2;
 typedef float3 ftype3;
 typedef float4 ftype4;
 template<typename T1,typename T2> __host__ __device__ ftype2 make_ftype2(const T1& f1, const T2& f2) { return make_float2(f1,f2); }
+//template<typename T1,typename T2,typename T3,typename T4> __host__ __device__ ftype4 make_ftype4(const T1& f1, const T2& f2, const T3& f3, const T4& f4) { return make_float4(f1,f2,f3,f4); }
 #endif
 
 #include "py_consts.h"
@@ -204,22 +206,39 @@ struct DiamondRag{
     if(Did==2) CHECK_ERROR( cudaMemcpyAsync(&dstRag->Vi[0        ].fld[0], &srcRag->Vi[0        ].fld[0], sizeof(TwoDomV)*(NDT*NDT/2  )+sizeof(ftype)*1*Nz, cudaMemcpyDeviceToDevice, stream) );
     if(Did==3) CHECK_ERROR( cudaMemcpyAsync(&dstRag->Vi[NDT*NDT/2].fld[1], &srcRag->Vi[NDT*NDT/2].fld[1], sizeof(TwoDomV)*(NDT*NDT/2+1)-sizeof(ftype)*1*Nz, cudaMemcpyDeviceToDevice, stream) );
 */  }
-  template<const int Did> inline static void MPIsendDiamond(DiamondRag* dstRag, DiamondRag* srcRag, const int dstnode, const int srcnode) {
+  template<const int Did> inline static void MPIsendDiamond(DiamondRag* dstRag, DiamondRag* srcRag, const int dstnode, const int srcnode, DiamondRag* send_buf, DiamondRag* recv_buf) {
     #ifdef MPI_ON
-    if(dstnode>=0 && dstnode<NasyncNodes-1) {
-      if(Did==0) MPI_Send(&srcRag->Si[0        ].duofld[0], sizeof(TwoDomS)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, dstnode, 0, MPI_COMM_WORLD );
-      if(Did==1) MPI_Send(&srcRag->Si[NDT*NDT/2].duofld[0], sizeof(TwoDomS)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, dstnode, 0, MPI_COMM_WORLD );
-      if(Did==2) MPI_Send(&srcRag->Vi[0        ].trifld   , sizeof(TwoDomV)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, dstnode, 0, MPI_COMM_WORLD );
-      if(Did==3) MPI_Send(&srcRag->Vi[NDT*NDT/2].trifld   , sizeof(TwoDomV)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, dstnode, 0, MPI_COMM_WORLD );
+      #ifdef GPUDIRECT_RDMA
+      #define MPI_GPUDIRECT(command,buf,size,mpitype,rank,tag) MPI_##command(buf,size,mpitype,rank,tag,MPI_COMM_WORLD,&req_##command);
+      #else
+      #define MPI_GPUDIRECT_Isend(buf,size,mpitype,rank,tag) { \
+        cudaMemcpy(send_buf,buf,size*sizeof(ftype),cudaMemcpyDeviceToHost);\
+        MPI_Isend(send_buf,size,mpitype,rank,tag,MPI_COMM_WORLD,&req_Isend);}
+      #define MPI_GPUDIRECT_Irecv(buf,size,mpitype,rank,tag) { \
+        MPI_Irecv(recv_buf,size,mpitype,rank,tag,MPI_COMM_WORLD,&req_Irecv);\
+        MPI_Wait(&req_Irecv,&stat);\
+        cudaMemcpy(buf,recv_buf,size*sizeof(ftype),cudaMemcpyHostToDevice);}
+      #define MPI_GPUDIRECT(command,buf,size,mpitype,rank,tag) { MPI_GPUDIRECT_##command(buf,size,mpitype,rank,tag); }
+      #endif
+    //printf("MPIsendrecv src=%d dst=%d\n",srcnode,dstnode);
+    MPI_Status stat; MPI_Request req_Isend,req_Irecv; int doSnd=0,doRcv=0;
+    if(dstnode<srcnode && srcnode%NasyncNodes>0 || dstnode>srcnode && srcnode%NasyncNodes<NasyncNodes-1) {
+      if(Did==0) MPI_GPUDIRECT(Isend, &srcRag->Si[0        ].duofld[0], sizeof(TwoDomS)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, dstnode, 0 );
+      if(Did==1) MPI_GPUDIRECT(Isend, &srcRag->Si[NDT*NDT/2].duofld[0], sizeof(TwoDomS)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, dstnode, 0 );
+      if(Did==2) MPI_GPUDIRECT(Isend, &srcRag->Vi[0        ].trifld   , sizeof(TwoDomV)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, dstnode, 0 );
+      if(Did==3) MPI_GPUDIRECT(Isend, &srcRag->Vi[NDT*NDT/2].trifld   , sizeof(TwoDomV)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, dstnode, 0 );
+      doSnd=1;
     }
     const int fromnode = srcnode+srcnode-dstnode;
-    if(fromnode>=0 && fromnode<NasyncNodes-1) {
-      MPI_Status stat;
-      if(Did==0) MPI_Recv(&dstRag->Si[0        ].duofld[0], sizeof(TwoDomS)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, fromnode, 0, MPI_COMM_WORLD, &stat );
-      if(Did==1) MPI_Recv(&dstRag->Si[NDT*NDT/2].duofld[0], sizeof(TwoDomS)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, fromnode, 0, MPI_COMM_WORLD, &stat );
-      if(Did==2) MPI_Recv(&dstRag->Vi[0        ].trifld   , sizeof(TwoDomV)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, fromnode, 0, MPI_COMM_WORLD, &stat );
-      if(Did==3) MPI_Recv(&dstRag->Vi[NDT*NDT/2].trifld   , sizeof(TwoDomV)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, fromnode, 0, MPI_COMM_WORLD, &stat );
+    if(fromnode<srcnode && srcnode%NasyncNodes>0 || fromnode>srcnode && srcnode%NasyncNodes<NasyncNodes-1) {
+      if(Did==0) MPI_GPUDIRECT(Irecv, &dstRag->Si[0        ].duofld[0], sizeof(TwoDomS)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, fromnode, 0 );
+      if(Did==1) MPI_GPUDIRECT(Irecv, &dstRag->Si[NDT*NDT/2].duofld[0], sizeof(TwoDomS)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, fromnode, 0 );
+      if(Did==2) MPI_GPUDIRECT(Irecv, &dstRag->Vi[0        ].trifld   , sizeof(TwoDomV)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, fromnode, 0 );
+      if(Did==3) MPI_GPUDIRECT(Irecv, &dstRag->Vi[NDT*NDT/2].trifld   , sizeof(TwoDomV)*(NDT*NDT/2+1)/sizeof(ftype), MPI_FTYPE, fromnode, 0 );
+      doRcv=1;
     }
+    if(doSnd) MPI_Wait(&req_Isend,&stat);
+    //if(doRcv) MPI_Wait(&req_Irecv,&stat);
     #endif
   }
 };
@@ -250,6 +269,8 @@ struct GeoParams{
   DiamondRag* data; 
   ModelRag* dataInd;
   DiamondRagPML* dataPMLa, *dataPMLs, *dataPMLsL, *dataPMLsR;
+  DiamondRag* rdma_send_buf;
+  DiamondRag* rdma_recv_buf;
   ModelTexs texs;
   SeismoDrops drop;
 
@@ -307,14 +328,14 @@ inline void DiamondRag::copyP(const int idev, int ixrag, cudaStream_t& stream){ 
   ixrag++;
   copyDiamond<2>( &parsHost.rags[idev+1][ ixrag%Ns   *NStripe[idev+1]  ], &parsHost.rags[idev  ][(ixrag%Ns+1)*NStripe[idev  ]-1], stream );
 }
-inline void DiamondRag::SendMPIm(const int node, int ixrag){ //diamonds 0 and 3
-  MPIsendDiamond<0>( &parsHost.rags[NDev-1][(ixrag%Ns+1)*NStripe[NDev-1]-1], &parsHost.rags[0][ ixrag%Ns   *NStripe[0]  ], node-1, node);
-  MPIsendDiamond<3>( &parsHost.rags[NDev-1][(ixrag%Ns+1)*NStripe[NDev-1]-1], &parsHost.rags[0][ ixrag%Ns   *NStripe[0]  ], node-1, node);
+inline void DiamondRag::SendMPIm(const int mpirank, int ixrag){ //diamonds 0 and 3
+  MPIsendDiamond<0>( &parsHost.rags[NDev-1][(ixrag%Ns+1)*NStripe[NDev-1]-1], &parsHost.rags[0][ ixrag%Ns   *NStripe[0]  ], mpirank-1, mpirank, parsHost.rdma_send_buf, parsHost.rdma_recv_buf);
+  MPIsendDiamond<3>( &parsHost.rags[NDev-1][(ixrag%Ns+1)*NStripe[NDev-1]-1], &parsHost.rags[0][ ixrag%Ns   *NStripe[0]  ], mpirank-1, mpirank, parsHost.rdma_send_buf, parsHost.rdma_recv_buf);
 }
-inline void DiamondRag::SendMPIp(const int node, int ixrag){ //diamonds 1 and 2
-  MPIsendDiamond<1>( &parsHost.rags[0][ ixrag%Ns   *NStripe[0]  ], &parsHost.rags[NDev-1][(ixrag%Ns+1)*NStripe[NDev-1]-1], node+1, node );
+inline void DiamondRag::SendMPIp(const int mpirank, int ixrag){ //diamonds 1 and 2
+  MPIsendDiamond<1>( &parsHost.rags[0][ ixrag%Ns   *NStripe[0]  ], &parsHost.rags[NDev-1][(ixrag%Ns+1)*NStripe[NDev-1]-1], mpirank+1, mpirank, parsHost.rdma_send_buf, parsHost.rdma_recv_buf );
   ixrag++;
-  MPIsendDiamond<2>( &parsHost.rags[0][ ixrag%Ns   *NStripe[0]  ], &parsHost.rags[NDev-1][(ixrag%Ns+1)*NStripe[NDev-1]-1], node+1, node );
+  MPIsendDiamond<2>( &parsHost.rags[0][ ixrag%Ns   *NStripe[0]  ], &parsHost.rags[NDev-1][(ixrag%Ns+1)*NStripe[NDev-1]-1], mpirank+1, mpirank, parsHost.rdma_send_buf, parsHost.rdma_recv_buf );
 }
 /*  CHECK_ERROR( cudaMemcpyAsync(&parsHost.rags[idev-1][(ixrag%Ns+1)*NStripe[idev-1]-1].Si[0].fld[0], 
                                &parsHost.rags[idev  ][ ixrag%Ns   *NStripe[idev  ]  ].Si[0].fld[0],

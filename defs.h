@@ -56,12 +56,41 @@ __device__ __forceinline__ static bool inPMLsync(const int x) { return (x<Npmlx/
 #define TEXCOFFS(nind,xt,yt,z,I,h) ArrcoffS[nind] = tex3D<float2>(pars.texs.TexlayerS[curDev], h*texStretchH, (z)*texStretchY, GLOBAL(xt)*texStretch[0]); /*if(threadIdx.x==Nz/2) printf("coffS(%d %d %d)=%g,%g\n", xt,z,h, coffS.x, coffS.y);*/
 #endif
 #ifdef USE_TEX_REFS
-#define TEXCOFFS(nind,xt,yt,z,I,h)  ArrcoffS[nind] = tex3D(layerRefS, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x); /*if(threadIdx.x==Nz/2) printf("coffS(%d %d %d)=%g,%g\n", xt,z,h, coffS.x, coffS.y);*/
-#define TEXCOFFV(nind,xt,yt,z,I,h)  ArrcoffV[nind] = tex3D(layerRefV, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x); /*if(threadIdx.x==Nz/2) printf("coffV(%d %d %d)=%g\n", xt,z,h, coffV);*/
+
+#define GET_TEX_INTERP(text,z,h,xt) tex3D(text, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x)
+//  tex3D(text, (z)*texStretch[0].y+texShift[0].y, afloor+0.5f, bfloor+0.5f)*(1.0f-alpha)*(1.0f-beta)+\
+//  tex3D(text, (z)*texStretch[0].y+texShift[0].y, afloor+1.5f, bfloor+0.5f)*alpha*(1.0f-beta)+\
+//  tex3D(text, (z)*texStretch[0].y+texShift[0].y, afloor+0.5f, bceil +0.5f)*(1.0f-alpha)*beta+\
+//  tex3D(text, (z)*texStretch[0].y+texShift[0].y, afloor+1.5f, bceil +0.5f)*alpha*beta
+/*  tex3D(text, (z)*texStretch[0].y+texShift[0].y, int(h*texStretchH-0.5f)+0.5f, int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)+0.5f)*\
+  (1.0f-(h*texStretchH-0.5f-int(h*texStretchH-0.5f)))*(1.0f-(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f-int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)))+\
+  tex3D(text, (z)*texStretch[0].y+texShift[0].y, int(h*texStretchH-0.5f)+1.5f, int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)+0.5f)*\
+  (     (h*texStretchH-0.5f-int(h*texStretchH-0.5f)))*(1.0f-(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f-int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)))+\
+  tex3D(text, (z)*texStretch[0].y+texShift[0].y, int(h*texStretchH-0.5f)+0.5f, int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)+1.5f)*\
+  (1.0f-(h*texStretchH-0.5f-int(h*texStretchH-0.5f)))*(     (GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f-int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)))+\
+  tex3D(text, (z)*texStretch[0].y+texShift[0].y, int(h*texStretchH-0.5f)+1.5f, int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)+1.5f)*\
+  (     (h*texStretchH-0.5f-int(h*texStretchH-0.5f)))*(     (GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f-int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)))*/
+
+// tex3D(text, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x)
+
+//tex3D(layerRefS, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)+0.5f)*(1.0f-(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f-int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)))+tex3D(layerRefS, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)+1.5f)*(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f-int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f));
+
+#define CALC_A_B(h,xt) ;/*\
+afloor=floorf(h*texStretchH-0.5f); alpha = h*texStretchH-0.5f-afloor; \
+bfloor=floorf(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f); beta = GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f-bfloor; \
+bfloor = int(bfloor)%texNwindow; bceil = int(bfloor+1)%texNwindow;*/
+#define TEXCOFFS(nind,xt,yt,z,I,h)  CALC_A_B(h,xt);\
+ ArrcoffS[nind] = GET_TEX_INTERP(layerRefS, z,h,xt); 
+//if(threadIdx.x==0 && blockIdx.x==0) printf("S at %d using texture X-coord %g and %g /////%d and %d// alpha=%g beta=%g h=%d,iy=%d ArrcoffS=%g %g\n", GLOBAL(xt), bfloor, bceil, int(bfloor)%5, int(bfloor+1)%5,alpha,beta,h,iy, ArrcoffS[nind].x,ArrcoffS[nind].y );
+#define TEXCOFFV(nind,xt,yt,z,I,h)  CALC_A_B(h,xt);\
+ ArrcoffV[nind] = GET_TEX_INTERP(layerRefV, z,h,xt); 
+//if(threadIdx.x==0 && blockIdx.x==0) printf("V at %d using texture X-coord %g and %g /////%d and %d// alpha=%g beta=%g\n", GLOBAL(xt), bfloor, bceil, int(bfloor)%5, int(bfloor+1)%5,alpha,beta);
 #ifndef ANISO_TR
-#define TEXCOFFTx(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D(layerRefT, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x);
-#define TEXCOFFTy(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D(layerRefT, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x);
-#define TEXCOFFTz(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D(layerRefT, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x);
+#define TEXCOFFTx(nind,xt,yt,z,I,h) CALC_A_B(h,xt); \
+ArrcoffT[nind] = GET_TEX_INTERP(layerRefT, z,h,xt);
+//if(threadIdx.x==0 && blockIdx.x==0) printf("T at %d using texture X-coord %g and %g /////%d and %d// alpha=%g beta=%g\n", GLOBAL(xt), bfloor, bceil, int(bfloor)%5, int(bfloor+1)%5,alpha,beta);
+#define TEXCOFFTy(nind,xt,yt,z,I,h) TEXCOFFTx(nind,xt,yt,z,I,h)
+#define TEXCOFFTz(nind,xt,yt,z,I,h) TEXCOFFTx(nind,xt,yt,z,I,h)
 #elif ANISO_TR==1
 #define TEXCOFFTx(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D(layerRefTa, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x);
 #define TEXCOFFTy(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D(layerRefTi, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x);
@@ -140,9 +169,11 @@ extern __shared__ ftype2 shared_fld[SHARED_SIZE][Nv];
   const int Kpml_iy=get_pml_iy(iy)*NDT*2+NDT-1; int Kpml_ix=0;\
   int it=t0; ftype difx[100],dify[100],difz[100]; ftype zerov=0.;\
   register ftype  coffV = defCoff::drho*dtdrd24, coffT=defCoff::Vs*defCoff::Vs*defCoff::rho*dtdrd24; \
-  register coffS_tp coffS = DEF_COFF_S;\
+  register coffS_t coffS = DEF_COFF_S;\
   register ftype ArrcoffV[100], ArrcoffT[100];\
-  register coffS_tp ArrcoffS[100];\
+  register coffS_t ArrcoffS[100];\
+  float alpha,beta,afloor,bfloor,bceil;\
+  const int texNwindow = int(ceil(Ns*NDT*2.0*texStretch[0].x)+2);\
   int I; register htype h[100];\
   ftype2 regPml; ftype regPml2; \
   ftype2 reg_fldV[250], reg_fldS[250]; ftype reg_R;\

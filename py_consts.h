@@ -9,18 +9,19 @@ typedef float ftype;
 
 #define gridNx 1350
 #define gridNy 416
-#define gridNz 984//1152
+#define gridNz 1152
 
-//#define ANISO_TR 2
+#define ANISO_TR 2
 
-#define NDev 1
+#define NDev 2
 #define NasyncNodes 1
+//#define GPUDIRECT_RDMA
 
 //#define USE_AIVLIB_MODEL
 //#define MPI_ON
 //#define TEST_RATE
 #define USE_WINDOW
-#define COFFS_DEFAULT
+//#define COFFS_DEFAULT
 //#define CLICK_BOOM
 #define SHARED_SIZE 14
 
@@ -45,9 +46,9 @@ const int GridNz=gridNz;
 const int GridNz=3*NA;
 #endif
 
-const int Npmlx=0*2*1;//2*24;
-const int Npmly=1;//24;
-const int Npmlz=0*2*16;//128;
+const int Npmlx=2*5;//2*24;
+const int Npmly=5;//24;
+const int Npmlz=2*16;//128;
 
 const ftype ds=25./2, da=6.95, dv=25./2, dt=2./3.;
 

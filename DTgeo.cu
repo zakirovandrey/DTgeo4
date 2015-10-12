@@ -105,9 +105,112 @@ __global__ void mxw_draw(float* buf) {
   DiamondRag* p=&pars.get_plaster(blockIdx.x,blockIdx.y);
   ModelRag* index=&pars.get_index(blockIdx.x,blockIdx.y);
   const int Npls=2*NDT*NDT;
-  #define MODELCOFF_S(text,xv,yv,hv) tex3D(ShowRefS, (yv)*texStretch[0].y+texShift[0].y, (hv)*texStretchH, (xv)*texStretchShow.x+texShiftShow.x)
-  #define MODELCOFF_V(text,xv,yv,hv) tex3D(ShowRefV, (yv)*texStretch[0].y+texShift[0].y, (hv)*texStretchH, (xv)*texStretchShow.x+texShiftShow.x)
-  #define MODELCOFF_T(text,xv,yv,hv) tex3D(ShowRefT, (yv)*texStretch[0].y+texShift[0].y, (hv)*texStretchH, (xv)*texStretchShow.x+texShiftShow.x)
+  //#define MODELCOFF_S(text,xv,yv,hv) (tex3D(ShowRefS, (yv)*texStretch[0].y+texShift[0].y, (hv)*texStretchH, int((xv)*texStretchShow.x+texShiftShow.x-0.5)+0.5)*(1-((xv)*texStretchShow.x+texShiftShow.x-0.5-int((xv)*texStretchShow.x+texShiftShow.x-0.5)))+tex3D(ShowRefS, (yv)*texStretch[0].y+texShift[0].y, (hv)*texStretchH, int((xv)*texStretchShow.x+texShiftShow.x-0.5)+1.5)*((xv)*texStretchShow.x+texShiftShow.x-0.5-int((xv)*texStretchShow.x+texShiftShow.x-0.5)))
+  //#define MODELCOFF_V(text,xv,yv,hv)  tex3D(ShowRefV, (yv)*texStretch[0].y+texShift[0].y, (hv)*texStretchH, int((xv)*texStretchShow.x+texShiftShow.x-0.5)+0.5)*(1-((xv)*texStretchShow.x+texShiftShow.x-0.5-int((xv)*texStretchShow.x+texShiftShow.x-0.5)))+tex3D(ShowRefV, (yv)*texStretch[0].y+texShift[0].y, (hv)*texStretchH, int((xv)*texStretchShow.x+texShiftShow.x-0.5)+1.5)*((xv)*texStretchShow.x+texShiftShow.x-0.5-int((xv)*texStretchShow.x+texShiftShow.x-0.5))
+  //#define MODELCOFF_T(text,xv,yv,hv)  tex3D(ShowRefT, (yv)*texStretch[0].y+texShift[0].y, (hv)*texStretchH, int((xv)*texStretchShow.x+texShiftShow.x-0.5)+0.5)*(1-((xv)*texStretchShow.x+texShiftShow.x-0.5-int((xv)*texStretchShow.x+texShiftShow.x-0.5)))+tex3D(ShowRefT, (yv)*texStretch[0].y+texShift[0].y, (hv)*texStretchH, int((xv)*texStretchShow.x+texShiftShow.x-0.5)+1.5)*((xv)*texStretchShow.x+texShiftShow.x-0.5-int((xv)*texStretchShow.x+texShiftShow.x-0.5))
+/*  #define MODELCOFF_S(text,xv,yv,hv) (tex3D(text, (yv)*texStretch[0].y+texShift[0].y, int((hv)*texStretchH-0.5)+0.5, int((xv)*texStretchShow.x+texShiftShow.x-0.5)+0.5)*\
+            (1-((hv)*texStretchH-0.5-int((hv)*texStretchH-0.5)))*(1-((xv)*texStretchShow.x+texShiftShow.x-0.5-int((xv)*texStretchShow.x+texShiftShow.x-0.5)))+\
+                                      tex3D(text, (yv)*texStretch[0].y+texShift[0].y, int((hv)*texStretchH-0.5)+1.5, int((xv)*texStretchShow.x+texShiftShow.x-0.5)+0.5)*\
+            (   (hv)*texStretchH-0.5-int((hv)*texStretchH-0.5) )*(1-((xv)*texStretchShow.x+texShiftShow.x-0.5-int((xv)*texStretchShow.x+texShiftShow.x-0.5)))+\
+                                      tex3D(text, (yv)*texStretch[0].y+texShift[0].y, int((hv)*texStretchH-0.5)+0.5, int((xv)*texStretchShow.x+texShiftShow.x-0.5)+1.5)*\
+            (1-((hv)*texStretchH-0.5-int((hv)*texStretchH-0.5)))*(   (xv)*texStretchShow.x+texShiftShow.x-0.5-int((xv)*texStretchShow.x+texShiftShow.x-0.5) )+\
+                                      tex3D(text, (yv)*texStretch[0].y+texShift[0].y, int((hv)*texStretchH-0.5)+1.5, int((xv)*texStretchShow.x+texShiftShow.x-0.5)+1.5)*\
+            (   (hv)*texStretchH-0.5-int((hv)*texStretchH-0.5) )*(   (xv)*texStretchShow.x+texShiftShow.x-0.5-int((xv)*texStretchShow.x+texShiftShow.x-0.5) ))*/
+  #define MODELCOFF_S(text,xv,yv,hv) tex3D(text, (yv)*texStretch[0].y+texShift[0].y, (hv)*texStretchH, (xv)*texStretchShow.x+texShiftShow.x)
+  #define MODELCOFF_V(text,xv,yv,hv) MODELCOFF_S(text,xv,yv,hv) 
+  #define MODELCOFF_T(text,xv,yv,hv) MODELCOFF_S(text,xv,yv,hv) 
+  /*if (threadIdx.x==0 && blockIdx.x==0 && blockIdx.y==0) {
+    //ushort hval=6000;
+    ushort hval=134;
+    printf("%g %g\n", texStretch[0].y, texShift[0].y);
+    printf("%g\n", texStretchH);
+ 
+    ftype val000 =2.167999983;//get_texture_cell(56,64,0).sigma;
+    ftype val001 =2.274626732;//get_texture_cell(56,64,1).sigma;
+    ftype val010 =2.167999983;//get_texture_cell(56,65,0).sigma;
+    ftype val011 =2.274638176;//get_texture_cell(56,65,1).sigma;
+    ftype val100 =2.167999983;//get_texture_cell(57,64,0).sigma;
+    ftype val101 =2.274683475;//get_texture_cell(57,64,1).sigma;
+    ftype val110 =2.167999983;//get_texture_cell(57,65,0).sigma;
+    ftype val111 =2.274693489;//get_texture_cell(57,65,1).sigma;
+    
+    float alpha=0;//1./0.25;
+    float beta =0;
+    //float gamma=(6000-5461.3333333333333)/10922.666666666666666;
+    float gamma=(134-128.0)/256.;
+    alpha = int(alpha*256+0.5)/256.;
+    beta = int(beta*256+0.5)/256.;
+    gamma = int(gamma*256+0.5)/256.;
+    
+    ftype c0 = val000*(1-beta)*(1-gamma)*(1-alpha) + val010*beta*(1-gamma)*(1-alpha)+
+               val001*(1-beta)*gamma    *(1-alpha) + val011*beta*gamma    *(1-alpha)+
+               val100*(1-beta)*(1-gamma)*alpha     + val110*beta*(1-gamma)*alpha    +
+               val101*(1-beta)*gamma    *alpha     + val111*beta*gamma    *alpha      ;
+
+    alpha =0.25;
+    ftype c1 = val000*(1-beta)*(1-gamma)*(1-alpha) + val010*beta*(1-gamma)*(1-alpha)+
+               val001*(1-beta)*gamma    *(1-alpha) + val011*beta*gamma    *(1-alpha)+
+               val100*(1-beta)*(1-gamma)*alpha     + val110*beta*(1-gamma)*alpha    +
+               val101*(1-beta)*gamma    *alpha     + val111*beta*gamma    *alpha      ;
+
+    alpha =1;
+    ftype c2 = val000*(1-beta)*(1-gamma)*(1-alpha) + val010*beta*(1-gamma)*(1-alpha)+
+               val001*(1-beta)*gamma    *(1-alpha) + val011*beta*gamma    *(1-alpha)+
+               val100*(1-beta)*(1-gamma)*alpha     + val110*beta*(1-gamma)*alpha    +
+               val101*(1-beta)*gamma    *alpha     + val111*beta*gamma    *alpha      ;
+     
+    printf("c0=%.9f\n", c0);
+    printf("c1=%.9f\n", c1);
+    printf("c2=%.9f\n", c2);
+
+    printf("texval at 000 = %.9f | %.9f\n", MODELCOFF_V(,168*2,128*2*0  ,128 ), val000);
+    printf("texval at 001 = %.9f | %.9f\n", MODELCOFF_V(,168*2,128*2*0  ,384), val001);
+    printf("texval at 010 = %.9f | %.9f\n", MODELCOFF_V(,168*2,130*2*0  ,128 ), val010);
+    printf("texval at 011 = %.9f | %.9f\n", MODELCOFF_V(,168*2,130*2*0  ,384), val011);
+    printf("texval at 100 = %.9f | %.9f\n", MODELCOFF_V(,172*2,128*2*0  ,128 ), val100);
+    printf("texval at 101 = %.9f | %.9f\n", MODELCOFF_V(,172*2,128*2*0  ,384), val101);
+    printf("texval at 110 = %.9f | %.9f\n", MODELCOFF_V(,172*2,130*2*0  ,128 ), val110);
+    printf("texval at 111 = %.9f | %.9f\n", MODELCOFF_V(,172*2,130*2*0  ,384), val111);
+
+    printf("\n");
+    printf("tex3D(x*%.9f+%.9f, y*%.9f+%.9f, h*%.9f)\n", texStretchShow.x, texShiftShow.x, texStretch[0].y, texShift[0].y, texStretchH);
+    printf("\n");
+    for(int i=0; i<16; i++) {
+    printf("texval at %6f,0 = %.9f | %.9f (tex3D(%.9f %.9f %.9f) )\n", i*4/16., MODELCOFF_V(,168*2+i*4/16.*2,128*2*0,hval), 0, (168*2+i*4/16.*2)*texStretchShow.x+texShiftShow.x, (128*2*0  )*texStretch[0].y+texShift[0].y, (hval)*texStretchH);
+    }
+    printf("\n");
+    
+    printf("texval at 168,0 = %.9f | %.9f (tex3D(%.9f %.9f %.9f) )\n", MODELCOFF_V(,168*2,128*2*0,hval), c0, (168*2)*texStretchShow.x+texShiftShow.x, (128*2*0  )*texStretch[0].y+texShift[0].y, (hval)*texStretchH);
+    printf("texval at 169,0 = %.9f | %.9f (tex3D(%.9f %.9f %.9f) )\n", MODELCOFF_V(,169*2,128*2*0,hval), c1, (169*2)*texStretchShow.x+texShiftShow.x, (128*2*0  )*texStretch[0].y+texShift[0].y, (hval)*texStretchH);
+    printf("texval at 172,0 = %.9f | %.9f (tex3D(%.9f %.9f %.9f) )\n", MODELCOFF_V(,172*2,128*2*0,hval), c2, (172*2)*texStretchShow.x+texShiftShow.x, (128*2*0  )*texStretch[0].y+texShift[0].y, (hval)*texStretchH);
+    printf("\n");
+    
+    for(int ii=0; ii<100; ii++) {
+      beta = ii/100.;
+      beta = int(beta*256+0.5)/256.;
+      ftype c = (1-beta)*(1-gamma)*(1-alpha)*val000+beta*(1-gamma)*(1-alpha)*val010+
+                (1-beta)*gamma*(1-alpha)*val001+beta*gamma*(1-alpha)*val011+
+                (1-beta)*(1-gamma)*alpha*val100+beta*(1-gamma)*alpha*val110+
+                (1-beta)*gamma*alpha*val101+beta*gamma*alpha*val111;
+//      printf("%.9f %.9f\n", MODELCOFF_V(,169*2,(128+2*ii/100.)*2  ,hval), c );
+    }
+    printf("\n");
+
+    printf("texval at 169,128.0 = %.9f (tex3D(%g %g %g) )\n", MODELCOFF_V(,169*2,128*2  ,hval), (169*2)*texStretchShow.x+texShiftShow.x, (128*2  )*texStretch[0].y+texShift[0].y, (hval)*texStretchH);
+    printf("texval at 169,128.1 = %.9f (tex3D(%g %g %g) )\n", MODELCOFF_V(,169*2,128*2+0.2,hval), (169*2)*texStretchShow.x+texShiftShow.x, (128*2+0.2)*texStretch[0].y+texShift[0].y, (hval)*texStretchH);
+    printf("texval at 169,128.2 = %.9f (tex3D(%g %g %g) )\n", MODELCOFF_V(,169*2,128*2+0.4,hval), (169*2)*texStretchShow.x+texShiftShow.x, (128*2+0.4)*texStretch[0].y+texShift[0].y, (hval)*texStretchH);
+    printf("texval at 169,128.3 = %.9f (tex3D(%g %g %g) )\n", MODELCOFF_V(,169*2,128*2+0.6,hval), (169*2)*texStretchShow.x+texShiftShow.x, (128*2+0.6)*texStretch[0].y+texShift[0].y, (hval)*texStretchH);
+    printf("texval at 169,128.4 = %.9f (tex3D(%g %g %g) )\n", MODELCOFF_V(,169*2,128*2+0.8,hval), (169*2)*texStretchShow.x+texShiftShow.x, (128*2+0.8)*texStretch[0].y+texShift[0].y, (hval)*texStretchH);
+    printf("texval at 169,128.5 = %.9f (tex3D(%g %g %g) )\n", MODELCOFF_V(,169*2,128*2+1,hval), (169*2)*texStretchShow.x+texShiftShow.x, (128*2+1)*texStretch[0].y+texShift[0].y, (hval)*texStretchH);
+    printf("\n");
+    printf("texval at 169,129.0 = %.9f (tex3D(%g %g %g) )\n", MODELCOFF_V(,169*2,129*2  ,hval), (169*2)*texStretchShow.x+texShiftShow.x, (129*2  )*texStretch[0].y+texShift[0].y, (hval)*texStretchH);
+    printf("texval at 169,129.5 = %.9f (tex3D(%g %g %g) )\n", MODELCOFF_V(,169*2,129*2+1,hval), (169*2)*texStretchShow.x+texShiftShow.x, (129*2+1)*texStretch[0].y+texShift[0].y, (hval)*texStretchH);
+    printf("texval at 169,130.0 = %.9f (tex3D(%g %g %g) )\n", MODELCOFF_V(,169*2,130*2  ,hval), (169*2)*texStretchShow.x+texShiftShow.x, (130*2  )*texStretch[0].y+texShift[0].y, (hval)*texStretchH);
+    printf("texval at 169,130.5 = %.9f (tex3D(%g %g %g) )\n", MODELCOFF_V(,169*2,130*2+1,hval), (169*2)*texStretchShow.x+texShiftShow.x, (130*2+1)*texStretch[0].y+texShift[0].y, (hval)*texStretchH);
+    printf("texval at 169,131.0 = %.9f (tex3D(%g %g %g) )\n", MODELCOFF_V(,169*2,131*2  ,hval), (169*2)*texStretchShow.x+texShiftShow.x, (131*2  )*texStretch[0].y+texShift[0].y, (hval)*texStretchH);
+    printf("texval at 169,131.5 = %.9f (tex3D(%g %g %g) )\n", MODELCOFF_V(,169*2,131*2+1,hval), (169*2)*texStretchShow.x+texShiftShow.x, (131*2+1)*texStretch[0].y+texShift[0].y, (hval)*texStretchH);
+    printf("texval at 169,132.0 = %.9f (tex3D(%g %g %g) )\n", MODELCOFF_V(,169*2,132*2  ,hval), (169*2)*texStretchShow.x+texShiftShow.x, (132*2  )*texStretch[0].y+texShift[0].y, (hval)*texStretchH);
+  }*/
   for(int idom=0; idom<Npls; idom++) {
     int Ragdir=0;
     if(pars.nFunc==6 || pars.nFunc==7 || pars.nFunc==8 || pars.nFunc==17 || pars.nFunc==18 || pars.nFunc==19 || pars.nFunc==26 || pars.nFunc==27 || pars.nFunc==28 ) Ragdir=1;
@@ -328,9 +431,9 @@ void GeoParamsHost::set(){
   #ifdef MPI_ON
   MPI_Comm_rank (MPI_COMM_WORLD, &node);   node/= NasyncNodes;
   MPI_Comm_size (MPI_COMM_WORLD, &Nprocs); 
+  #endif
   if(Nprocs%NasyncNodes!=0) { printf("Error: mpi procs must be dividable by NasyncNodes\n"); exit(-1); }
   Nprocs/= NasyncNodes;
-  #endif
   mapNodeSize = new int[Nprocs];
   int accSizes=0;
   for(int i=0; i<Nprocs; i++) mapNodeSize[i] = Np/Nprocs+Ns; 
@@ -347,6 +450,7 @@ void GeoParamsHost::set(){
   if(mapNodeSize[0]       <=Npmlx/2+Ns+Ns) { printf("Error: mapNodeSize[0]<=Npmlx/2+Ns+Ns\n"); exit(-1); }
   if(mapNodeSize[Nprocs-1]<=Npmlx/2+Ns+Ns) { printf("Error: mapNodeSize[Nodes-1]<=Npmlx/2+Ns+Ns\n"); exit(-1); }
   #endif
+  omp_set_num_threads(2);
 
   //dir= new string("/Run/zakirov/tmp/"); //ix=Nx+Nbase/2; Yshtype=0;
   dir= new std::string(im3DHost.drop_dir);
@@ -432,6 +536,11 @@ void GeoParamsHost::set(){
   dataPMLa = new DiamondRagPML[Nn*Npmly]; memset(dataPMLa, 0, Nn*Npmly*sizeof(DiamondRagPML));
   dataPMLs = new DiamondRagPML[Npmlx*Na]; memset(dataPMLs, 0, Npmlx*Na*sizeof(DiamondRagPML));
   #endif
+  #endif
+  #ifndef GPUDIRECT_RDMA
+  size_t size_rdma = sizeof(DiamondRag)*(NDT*NDT/2+1);
+  CHECK_ERROR( cudaMallocHost( (void**)&rdma_send_buf, size_rdma ) );
+  CHECK_ERROR( cudaMallocHost( (void**)&rdma_recv_buf, size_rdma ) );
   #endif
 
   drop.init();
