@@ -166,7 +166,7 @@ __device__ __noinline__ ftype SrcSurf_Vy(const int s, const int v, const int a, 
   ftype arg = (tt-src.start)*dt; 
   ftype Th=3./src.F0;
   if (arg>2*Th) return 0;
-  return dt*src.Ampl/(src.w0*src.w0)*src.Vp*src.Vp/(src.F0*src.F0)*__expf(-(x*x+y*y)/(src.w0*src.w0))* //L7shtsht(arg);
+  return dt*src.Ampl/(src.w0*src.w0)*src.Vp*src.Vp/(src.F0*src.F0)*__expf(-(x*x+y*y)/(src.w0*src.w0))*S<2>(src.F0*arg);//L7shtsht(arg);
         //Ricker wavelet
         (1-2*M_PI*M_PI*src.F0*src.F0*(arg-Th*0.5)*(arg-Th*0.5))*__expf(-M_PI*M_PI*src.F0*src.F0*(arg-Th*0.5)*(arg-Th*0.5));
        //  else return EnvelopeR(x,y)*( sqrt((r0*r0+Rh*Rh)/(r1*r1+Rh*Rh))*r1/r0*Boom(x,y,r0,(it-0.5)*dt-delay,false) - Boom(x,y,r1,(it-0.5)*dt,false) )/Rho;
