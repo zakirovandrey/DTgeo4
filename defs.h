@@ -65,14 +65,14 @@ __device__ __forceinline__ static bool inPMLsync(const int x) { return (x<Npmlx/
   tex3D(text, (z)*texStretch[0].y+texShift[0].y, afloor+1.5f, bfloor+0.5f)*alpha*(1.0f-beta)+\
   tex3D(text, (z)*texStretch[0].y+texShift[0].y, afloor+0.5f, bceil +0.5f)*(1.0f-alpha)*beta+\
   tex3D(text, (z)*texStretch[0].y+texShift[0].y, afloor+1.5f, bceil +0.5f)*alpha*beta
-  tex3D(text, (z)*texStretch[0].y+texShift[0].y, int(h*texStretchH-0.5f)+0.5f, int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)+0.5f)*\
+/*  tex3D(text, (z)*texStretch[0].y+texShift[0].y, int(h*texStretchH-0.5f)+0.5f, int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)+0.5f)*\
   (1.0f-(h*texStretchH-0.5f-int(h*texStretchH-0.5f)))*(1.0f-(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f-int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)))+\
   tex3D(text, (z)*texStretch[0].y+texShift[0].y, int(h*texStretchH-0.5f)+1.5f, int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)+0.5f)*\
   (     (h*texStretchH-0.5f-int(h*texStretchH-0.5f)))*(1.0f-(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f-int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)))+\
   tex3D(text, (z)*texStretch[0].y+texShift[0].y, int(h*texStretchH-0.5f)+0.5f, int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)+1.5f)*\
   (1.0f-(h*texStretchH-0.5f-int(h*texStretchH-0.5f)))*(     (GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f-int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)))+\
   tex3D(text, (z)*texStretch[0].y+texShift[0].y, int(h*texStretchH-0.5f)+1.5f, int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)+1.5f)*\
-  (     (h*texStretchH-0.5f-int(h*texStretchH-0.5f)))*(     (GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f-int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)))
+  (     (h*texStretchH-0.5f-int(h*texStretchH-0.5f)))*(     (GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f-int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)))*/
 #endif
 
 // tex3D(text, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x)
@@ -82,7 +82,7 @@ __device__ __forceinline__ static bool inPMLsync(const int x) { return (x<Npmlx/
 #ifdef CUDA_TEX_INTERP
 #define CALC_A_B(h,xt) ;
 #else 
-#define CALC_A_B(h,xt) \ 
+#define CALC_A_B(h,xt) \
 afloor=floorf(h*texStretchH-0.5f); alpha = h*texStretchH-0.5f-afloor; \
 bfloor=floorf(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f); beta = GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f-bfloor; \
 bfloor = int(bfloor)%texNwindow; bceil = int(bfloor+1)%texNwindow;
