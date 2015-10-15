@@ -57,28 +57,36 @@ __device__ __forceinline__ static bool inPMLsync(const int x) { return (x<Npmlx/
 #endif
 #ifdef USE_TEX_REFS
 
+#ifdef CUDA_TEX_INTERP
 #define GET_TEX_INTERP(text,z,h,xt) tex3D(text, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x)
-//  tex3D(text, (z)*texStretch[0].y+texShift[0].y, afloor+0.5f, bfloor+0.5f)*(1.0f-alpha)*(1.0f-beta)+\
-//  tex3D(text, (z)*texStretch[0].y+texShift[0].y, afloor+1.5f, bfloor+0.5f)*alpha*(1.0f-beta)+\
-//  tex3D(text, (z)*texStretch[0].y+texShift[0].y, afloor+0.5f, bceil +0.5f)*(1.0f-alpha)*beta+\
-//  tex3D(text, (z)*texStretch[0].y+texShift[0].y, afloor+1.5f, bceil +0.5f)*alpha*beta
-/*  tex3D(text, (z)*texStretch[0].y+texShift[0].y, int(h*texStretchH-0.5f)+0.5f, int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)+0.5f)*\
+#else
+#define GET_TEX_INTERP(text,z,h,xt) \
+  tex3D(text, (z)*texStretch[0].y+texShift[0].y, afloor+0.5f, bfloor+0.5f)*(1.0f-alpha)*(1.0f-beta)+\
+  tex3D(text, (z)*texStretch[0].y+texShift[0].y, afloor+1.5f, bfloor+0.5f)*alpha*(1.0f-beta)+\
+  tex3D(text, (z)*texStretch[0].y+texShift[0].y, afloor+0.5f, bceil +0.5f)*(1.0f-alpha)*beta+\
+  tex3D(text, (z)*texStretch[0].y+texShift[0].y, afloor+1.5f, bceil +0.5f)*alpha*beta
+  tex3D(text, (z)*texStretch[0].y+texShift[0].y, int(h*texStretchH-0.5f)+0.5f, int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)+0.5f)*\
   (1.0f-(h*texStretchH-0.5f-int(h*texStretchH-0.5f)))*(1.0f-(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f-int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)))+\
   tex3D(text, (z)*texStretch[0].y+texShift[0].y, int(h*texStretchH-0.5f)+1.5f, int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)+0.5f)*\
   (     (h*texStretchH-0.5f-int(h*texStretchH-0.5f)))*(1.0f-(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f-int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)))+\
   tex3D(text, (z)*texStretch[0].y+texShift[0].y, int(h*texStretchH-0.5f)+0.5f, int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)+1.5f)*\
   (1.0f-(h*texStretchH-0.5f-int(h*texStretchH-0.5f)))*(     (GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f-int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)))+\
   tex3D(text, (z)*texStretch[0].y+texShift[0].y, int(h*texStretchH-0.5f)+1.5f, int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)+1.5f)*\
-  (     (h*texStretchH-0.5f-int(h*texStretchH-0.5f)))*(     (GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f-int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)))*/
+  (     (h*texStretchH-0.5f-int(h*texStretchH-0.5f)))*(     (GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f-int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)))
+#endif
 
 // tex3D(text, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x)
 
 //tex3D(layerRefS, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)+0.5f)*(1.0f-(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f-int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)))+tex3D(layerRefS, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)+1.5f)*(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f-int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f));
 
-#define CALC_A_B(h,xt) ;/*\
+#ifdef CUDA_TEX_INTERP
+#define CALC_A_B(h,xt) ;
+#else 
+#define CALC_A_B(h,xt) \ 
 afloor=floorf(h*texStretchH-0.5f); alpha = h*texStretchH-0.5f-afloor; \
 bfloor=floorf(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f); beta = GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f-bfloor; \
-bfloor = int(bfloor)%texNwindow; bceil = int(bfloor+1)%texNwindow;*/
+bfloor = int(bfloor)%texNwindow; bceil = int(bfloor+1)%texNwindow;
+#endif
 #define TEXCOFFS(nind,xt,yt,z,I,h)  CALC_A_B(h,xt);\
  ArrcoffS[nind] = GET_TEX_INTERP(layerRefS, z,h,xt); 
 //if(threadIdx.x==0 && blockIdx.x==0) printf("S at %d using texture X-coord %g and %g /////%d and %d// alpha=%g beta=%g h=%d,iy=%d ArrcoffS=%g %g\n", GLOBAL(xt), bfloor, bceil, int(bfloor)%5, int(bfloor+1)%5,alpha,beta,h,iy, ArrcoffS[nind].x,ArrcoffS[nind].y );
@@ -92,17 +100,17 @@ ArrcoffT[nind] = GET_TEX_INTERP(layerRefT, z,h,xt);
 #define TEXCOFFTy(nind,xt,yt,z,I,h) TEXCOFFTx(nind,xt,yt,z,I,h)
 #define TEXCOFFTz(nind,xt,yt,z,I,h) TEXCOFFTx(nind,xt,yt,z,I,h)
 #elif ANISO_TR==1
-#define TEXCOFFTx(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D(layerRefTa, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x);
-#define TEXCOFFTy(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D(layerRefTi, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x);
-#define TEXCOFFTz(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D(layerRefTi, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x);
+#define TEXCOFFTx(nind,xt,yt,z,I,h) CALC_A_B(h,xt); ArrcoffT[nind] = GET_TEX_INTERP(layerRefTa, z,h,xt);
+#define TEXCOFFTy(nind,xt,yt,z,I,h) CALC_A_B(h,xt); ArrcoffT[nind] = GET_TEX_INTERP(layerRefTi, z,h,xt);
+#define TEXCOFFTz(nind,xt,yt,z,I,h) CALC_A_B(h,xt); ArrcoffT[nind] = GET_TEX_INTERP(layerRefTi, z,h,xt);
 #elif ANISO_TR==2
-#define TEXCOFFTx(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D(layerRefTi, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x);
-#define TEXCOFFTy(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D(layerRefTa, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x);
-#define TEXCOFFTz(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D(layerRefTi, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x);
+#define TEXCOFFTx(nind,xt,yt,z,I,h) CALC_A_B(h,xt); ArrcoffT[nind] = GET_TEX_INTERP(layerRefTi, z,h,xt);
+#define TEXCOFFTy(nind,xt,yt,z,I,h) CALC_A_B(h,xt); ArrcoffT[nind] = GET_TEX_INTERP(layerRefTa, z,h,xt);
+#define TEXCOFFTz(nind,xt,yt,z,I,h) CALC_A_B(h,xt); ArrcoffT[nind] = GET_TEX_INTERP(layerRefTi, z,h,xt);
 #elif ANISO_TR==3
-#define TEXCOFFTx(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D(layerRefTi, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x);
-#define TEXCOFFTy(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D(layerRefTi, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x);
-#define TEXCOFFTz(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D(layerRefTa, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x);
+#define TEXCOFFTx(nind,xt,yt,z,I,h) CALC_A_B(h,xt); ArrcoffT[nind] = GET_TEX_INTERP(layerRefTi, z,h,xt);
+#define TEXCOFFTy(nind,xt,yt,z,I,h) CALC_A_B(h,xt); ArrcoffT[nind] = GET_TEX_INTERP(layerRefTi, z,h,xt);
+#define TEXCOFFTz(nind,xt,yt,z,I,h) CALC_A_B(h,xt); ArrcoffT[nind] = GET_TEX_INTERP(layerRefTa, z,h,xt);
 #endif//ANISO_TR
 #endif//USE_TEX_REFS
 //#define TEXCOFFV(xt,yt,z,I,h) coffV = tex3D<float >(pars.texs.TexlayerV[curDev], h*texStretchH, (z)*texStretchY, GLOBAL(xt)*texStretch[0]); /*if(threadIdx.x==Nz/2) printf("coffV(%d %d %d)=%g\n", xt,z,h, coffV);*/

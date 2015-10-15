@@ -12,6 +12,7 @@ typedef float ftype;
 #define gridNz 1152
 
 #define ANISO_TR 2
+//#define CUDA_TEX_INTERP
 
 #define NDev 2
 #define NasyncNodes 1

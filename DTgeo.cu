@@ -108,15 +108,18 @@ __global__ void mxw_draw(float* buf) {
   //#define MODELCOFF_S(text,xv,yv,hv) (tex3D(ShowRefS, (yv)*texStretch[0].y+texShift[0].y, (hv)*texStretchH, int((xv)*texStretchShow.x+texShiftShow.x-0.5)+0.5)*(1-((xv)*texStretchShow.x+texShiftShow.x-0.5-int((xv)*texStretchShow.x+texShiftShow.x-0.5)))+tex3D(ShowRefS, (yv)*texStretch[0].y+texShift[0].y, (hv)*texStretchH, int((xv)*texStretchShow.x+texShiftShow.x-0.5)+1.5)*((xv)*texStretchShow.x+texShiftShow.x-0.5-int((xv)*texStretchShow.x+texShiftShow.x-0.5)))
   //#define MODELCOFF_V(text,xv,yv,hv)  tex3D(ShowRefV, (yv)*texStretch[0].y+texShift[0].y, (hv)*texStretchH, int((xv)*texStretchShow.x+texShiftShow.x-0.5)+0.5)*(1-((xv)*texStretchShow.x+texShiftShow.x-0.5-int((xv)*texStretchShow.x+texShiftShow.x-0.5)))+tex3D(ShowRefV, (yv)*texStretch[0].y+texShift[0].y, (hv)*texStretchH, int((xv)*texStretchShow.x+texShiftShow.x-0.5)+1.5)*((xv)*texStretchShow.x+texShiftShow.x-0.5-int((xv)*texStretchShow.x+texShiftShow.x-0.5))
   //#define MODELCOFF_T(text,xv,yv,hv)  tex3D(ShowRefT, (yv)*texStretch[0].y+texShift[0].y, (hv)*texStretchH, int((xv)*texStretchShow.x+texShiftShow.x-0.5)+0.5)*(1-((xv)*texStretchShow.x+texShiftShow.x-0.5-int((xv)*texStretchShow.x+texShiftShow.x-0.5)))+tex3D(ShowRefT, (yv)*texStretch[0].y+texShift[0].y, (hv)*texStretchH, int((xv)*texStretchShow.x+texShiftShow.x-0.5)+1.5)*((xv)*texStretchShow.x+texShiftShow.x-0.5-int((xv)*texStretchShow.x+texShiftShow.x-0.5))
-/*  #define MODELCOFF_S(text,xv,yv,hv) (tex3D(text, (yv)*texStretch[0].y+texShift[0].y, int((hv)*texStretchH-0.5)+0.5, int((xv)*texStretchShow.x+texShiftShow.x-0.5)+0.5)*\
+  #ifndef CUDA_TEX_INTERP
+  #define MODELCOFF_S(text,xv,yv,hv) (tex3D(text, (yv)*texStretch[0].y+texShift[0].y, int((hv)*texStretchH-0.5)+0.5, int((xv)*texStretchShow.x+texShiftShow.x-0.5)+0.5)*\
             (1-((hv)*texStretchH-0.5-int((hv)*texStretchH-0.5)))*(1-((xv)*texStretchShow.x+texShiftShow.x-0.5-int((xv)*texStretchShow.x+texShiftShow.x-0.5)))+\
                                       tex3D(text, (yv)*texStretch[0].y+texShift[0].y, int((hv)*texStretchH-0.5)+1.5, int((xv)*texStretchShow.x+texShiftShow.x-0.5)+0.5)*\
             (   (hv)*texStretchH-0.5-int((hv)*texStretchH-0.5) )*(1-((xv)*texStretchShow.x+texShiftShow.x-0.5-int((xv)*texStretchShow.x+texShiftShow.x-0.5)))+\
                                       tex3D(text, (yv)*texStretch[0].y+texShift[0].y, int((hv)*texStretchH-0.5)+0.5, int((xv)*texStretchShow.x+texShiftShow.x-0.5)+1.5)*\
             (1-((hv)*texStretchH-0.5-int((hv)*texStretchH-0.5)))*(   (xv)*texStretchShow.x+texShiftShow.x-0.5-int((xv)*texStretchShow.x+texShiftShow.x-0.5) )+\
                                       tex3D(text, (yv)*texStretch[0].y+texShift[0].y, int((hv)*texStretchH-0.5)+1.5, int((xv)*texStretchShow.x+texShiftShow.x-0.5)+1.5)*\
-            (   (hv)*texStretchH-0.5-int((hv)*texStretchH-0.5) )*(   (xv)*texStretchShow.x+texShiftShow.x-0.5-int((xv)*texStretchShow.x+texShiftShow.x-0.5) ))*/
+            (   (hv)*texStretchH-0.5-int((hv)*texStretchH-0.5) )*(   (xv)*texStretchShow.x+texShiftShow.x-0.5-int((xv)*texStretchShow.x+texShiftShow.x-0.5) ))
+  #else
   #define MODELCOFF_S(text,xv,yv,hv) tex3D(text, (yv)*texStretch[0].y+texShift[0].y, (hv)*texStretchH, (xv)*texStretchShow.x+texShiftShow.x)
+  #endif
   #define MODELCOFF_V(text,xv,yv,hv) MODELCOFF_S(text,xv,yv,hv) 
   #define MODELCOFF_T(text,xv,yv,hv) MODELCOFF_S(text,xv,yv,hv) 
   /*if (threadIdx.x==0 && blockIdx.x==0 && blockIdx.y==0) {

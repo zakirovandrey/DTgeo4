@@ -60,28 +60,34 @@ void ModelTexs::init(){
     texStep[ind]  = Np*3.0/(texN[ind].x-1);//in_Yee_cells
 
     int texNwindow = int(ceil(Ns*NDT/texStep[ind])+2);
+    #ifdef CUDA_TEX_INTERP
     texStretchHost[ind].x = 1.0/(2.0*texStep[ind]*texNwindow);
     texStretchHost[ind].y = 1.0/(2*Nz)*(texN[ind].y-1)/texN[ind].y;
     texShiftHost[ind].x = 1.0/(2.0*texNwindow);
     texShiftHost[ind].y = 1.0/(2.0*texN[ind].y);
-/*    texStretchHost[ind].x = 1.0/(2.0*texStep[ind]);
+    #else
+    texStretchHost[ind].x = 1.0/(2.0*texStep[ind]);
     texStretchHost[ind].y = 1.0/(2*Nz)*(texN[ind].y-1);
     texShiftHost[ind].x = 0.5;//texN[ind].x/(2.0*texNwindow);
-    texShiftHost[ind].y = 0.5;*/
+    texShiftHost[ind].y = 0.5;
+    #endif
     texsize_onhost+= texN[ind].x*texN[ind].y*texN[ind].z;
     texsize_ondevs+= texNwindow*texN[ind].y*texN[ind].z;
     if(node==0) printf("Texture%d Size %dx%dx%d (Nx x Ny x Nh)\n", ind, texN[ind].x, texN[ind].y, texN[ind].z);
     if(node==0) printf("Texture%d Stepx %g\n", ind, texStep[ind]);
     if(texStep[ind]<NDT) { printf("Texture profile step is smaller than 3*Yee_cells; Is it right?\n"); exit(-1); }
   }
+  #ifdef CUDA_TEX_INTERP
   float2 texStretchShowHost = make_float2(1.0/(2*NDT*Np)*(texN[0].x-1)/texN[0].x, 0.);
   float2 texShiftShowHost   = make_float2(1./(2*texN[0].x), 0.);
-//  float2 texStretchShowHost = make_float2(1.0/(2*NDT*Np)*(texN[0].x-1), 0.);
-//  float2 texShiftShowHost   = make_float2(0.5, 0.);
+  h_scale = 2*((1<<30)/(2*texN[0].z)); const float texStretchH_host = 1.0/(texN[0].z*h_scale);
+  #else
+  float2 texStretchShowHost = make_float2(1.0/(2*NDT*Np)*(texN[0].x-1), 0.);
+  float2 texShiftShowHost   = make_float2(0.5, 0.);
+  h_scale = 2*((1<<30)/(2*texN[0].z)); const float texStretchH_host = 1.0/h_scale;
+  #endif
   for(int i=0; i<NDev; i++) {
     CHECK_ERROR( cudaSetDevice(i) );
-    h_scale = 2*((1<<30)/(2*texN[0].z)); const float texStretchH_host = 1.0/(texN[0].z*h_scale);
-    //h_scale = 2*((1<<30)/(2*texN[0].z)); const float texStretchH_host = 1.0/h_scale;
     CHECK_ERROR( cudaMemcpyToSymbol(texStretchH   ,&texStretchH_host, sizeof(float), 0, cudaMemcpyHostToDevice) );
     CHECK_ERROR( cudaMemcpyToSymbol(texStretch    , texStretchHost, sizeof(float2)*Ntexs, 0, cudaMemcpyHostToDevice) );
     CHECK_ERROR( cudaMemcpyToSymbol(texShift      , texShiftHost  , sizeof(float2)*Ntexs, 0, cudaMemcpyHostToDevice) );
@@ -231,7 +237,11 @@ void ModelTexs::init(){
       CHECK_ERROR( cudaMemcpy3D(&copyparms) );*/
 
       cudaTextureDesc texDesc; memset(&texDesc, 0, sizeof(texDesc));
+      #ifdef CUDA_TEX_INTERP
       texDesc.normalizedCoords = 1;
+      #else
+      texDesc.normalizedCoords = 0;
+      #endif
       texDesc.filterMode = cudaFilterModeLinear;
       texDesc.addressMode[0] = cudaAddressModeClamp; // in future try to test ModeBorder
       texDesc.addressMode[1] = cudaAddressModeClamp; // in future try to test ModeBorder
@@ -252,7 +262,11 @@ void ModelTexs::init(){
     layerRefS.addressMode[1] = cudaAddressModeClamp; layerRefV.addressMode[1] = cudaAddressModeClamp; layerRefT.addressMode[1] = cudaAddressModeClamp; layerRefTi.addressMode[1] = cudaAddressModeClamp; layerRefTa.addressMode[1] = cudaAddressModeClamp;
     layerRefS.addressMode[2] = cudaAddressModeWrap;  layerRefV.addressMode[2] = cudaAddressModeWrap;  layerRefT.addressMode[2] = cudaAddressModeWrap;  layerRefTi.addressMode[2] = cudaAddressModeWrap;  layerRefTa.addressMode[2] = cudaAddressModeWrap;
     layerRefS.filterMode = cudaFilterModeLinear; layerRefV.filterMode = cudaFilterModeLinear; layerRefT.filterMode = cudaFilterModeLinear;layerRefTi.filterMode = cudaFilterModeLinear;layerRefTa.filterMode = cudaFilterModeLinear;
+    #ifdef CUDA_TEX_INTERP
     layerRefS.normalized = true; layerRefV.normalized = true; layerRefT.normalized = true; layerRefTi.normalized = true; layerRefTa.normalized = true;
+    #else
+    layerRefS.normalized =false; layerRefV.normalized =false; layerRefT.normalized =false; layerRefTi.normalized =false; layerRefTa.normalized =false;
+    #endif
     channelDesc = cudaCreateChannelDesc<coffS_t>(); CHECK_ERROR( cudaBindTextureToArray(layerRefS , DevLayerS [idev][0], channelDesc) );
     channelDesc = cudaCreateChannelDesc<float  >(); CHECK_ERROR( cudaBindTextureToArray(layerRefV , DevLayerV [idev][0], channelDesc) );
     #ifndef ANISO_TR
