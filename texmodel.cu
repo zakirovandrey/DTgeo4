@@ -134,6 +134,7 @@ void ModelTexs::init(){
         #ifdef USE_AIVLIB_MODEL
         //GeoPhysPar p = get_texture_cell(ix,iy,ih-((ih==texNh)?1:0)); Vp=p.Vp; Vs=p.Vs; rho=p.sigma; drho=1.0/rho;
         GeoPhysParAniso p = get_texture_cell_aniso(ix,iy,ih-((ih==texNh)?1:0)); Vp=p.Vp; Vs=p.Vs; rho=p.sigma; drho=1.0/rho;
+        if(rho==0) drho=0;
 
         ftype Vp_q = Vp, Vs_q1 = Vs, Vs_q2 = Vs;
         //------Anisotropy flag-------//
