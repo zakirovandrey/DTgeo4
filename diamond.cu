@@ -55,7 +55,9 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
   const int Nth=Nv; 
   double tt1 = omp_get_wtime();
   CHECK_ERROR( cudaSetDevice(0) );
+  cudaStream_t stI   ; CHECK_ERROR( cudaStreamCreate(&stI   ) );
   cudaStream_t stPMLm; CHECK_ERROR( cudaStreamCreate(&stPMLm) );
+  cudaStream_t stB; CHECK_ERROR( cudaStreamCreate(&stB) );
   cudaStream_t stDm[NDev],stDo[NDev]; for(int i=0;i<NDev;i++) { if(i!=0) CHECK_ERROR( cudaSetDevice(i) ); CHECK_ERROR( cudaStreamCreate(&stDm[i]) ); CHECK_ERROR( cudaStreamCreate(&stDo[i]) ); }
   cudaStream_t stPMLp; CHECK_ERROR( cudaStreamCreate(&stPMLp) );
   cudaStream_t stX   ; CHECK_ERROR( cudaStreamCreate(&stX   ) );
@@ -65,12 +67,13 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
 
   int iym=0, iyp=0; 
   int Nblk=0;   iyp++;
-  int Iy=iym, Xy, D1oy[NDev], D0oy[NDev], Dmy[NDev], DmBlk[NDev], Sy, SyBlk;
-  int is_oneL[NDev], is_oneU[NDev], is_many[NDev], is_I[NDev], is_X[NDev], is_S[NDev], is_P[NDev];
-  for(int i=0; i<NDev; i++) { is_oneL[i]=0; is_oneU[i]=0; is_many[i]=0; is_I[i]=0; is_X[i]=0; is_S[i]=0; is_P[i]=0; }
+  int Iy=iym, Xy, D1oy[NDev], D0oy[NDev], Dmy[NDev], DmBlk[NDev], Syb,Syt, SybBlk,SytBlk;
+  int is_oneL[NDev], is_oneU[NDev], is_many[NDev], is_I[NDev], is_X[NDev], is_Sb[NDev], is_St[NDev], is_P[NDev], is_B[NDev];
+  for(int i=0; i<NDev; i++) { is_oneL[i]=0; is_oneU[i]=0; is_many[i]=0; is_I[i]=0; is_X[i]=0; is_Sb[i]=0; is_St[i]=0; is_P[i]=0; is_B[i]=0; }
   is_I[0]=1;
+  iym=iyp; Nblk=0; while(iyp<Npmly/2) { iyp++; Nblk++; } if(Nblk>0) is_Sb[0]=1; Syb=iym; SybBlk=Nblk; 
   for(int idev=0,nextY=0; idev<NDev; idev++) {
-    nextY+=NStripe[idev]; if(idev==NDev-1) nextY-=Npmly;
+    nextY+=NStripe[idev]; if(idev==NDev-1) nextY-=max(1,Npmly/2);
     if(idev!=0) {
     // Dtorre1 only
       if(iyp<nextY && even==1) is_oneL[idev]=1;
@@ -87,33 +90,41 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
     }
   }
   iym=iyp; Nblk=0;  while(iyp<Na-1) { iyp++; Nblk++; }
-  if(Nblk>0) is_S[NDev-1]=1;
+  if(Nblk>0) is_St[NDev-1]=1;
   is_X[NDev-1]=1;
-  Sy=iym; SyBlk=Nblk; Xy=iyp;
+  Syt=iym; SytBlk=Nblk; Xy=iyp;
   if(subnode!=0) {
-    is_I[0]=0; if(even==1) is_P[0]=1;
+    is_I [0]=0; if(even==1) is_P[0]=1;
+    is_Sb[0]=0; DmBlk[0]+=SybBlk; Dmy[0]=Syb; 
   }
   if(subnode!=NasyncNodes-1) {
-    is_X[NDev-1]=0; if(even==0) is_P[NDev-1]=1; 
-    is_S[NDev-1]=0; DmBlk[NDev-1]+=SyBlk;
+    is_X [NDev-1]=0; if(even==0) is_P[NDev-1]=1; 
+    is_St[NDev-1]=0; DmBlk[NDev-1]+=SytBlk;
   }
+  
+  is_B[0]=1; Dmy[0]++; DmBlk[0]--;
 
+  int mpirank = node*NasyncNodes+subnode;
   for(int idev=0; idev<NDev; idev++) {
     if(idev!=0) CHECK_ERROR( cudaSetDevice(idev) );
     if(is_oneL[idev] && even==1 &&  isTFSF) IFPMLS(torreTFSF1 ,1          ,Nth,0,stDo[idev],(ix,D1oy[idev],Nt,t0))
     if(is_oneL[idev] && even==1 && !isTFSF) IFPMLS(torreD1    ,1          ,Nth,0,stDo[idev],(ix,D1oy[idev],Nt,t0))
     if(is_oneU[idev] && even==0 &&  isTFSF) IFPMLS(torreTFSF0 ,1          ,Nth,0,stDo[idev],(ix,D0oy[idev],Nt,t0))
     if(is_oneU[idev] && even==0 && !isTFSF) IFPMLS(torreD0    ,1          ,Nth,0,stDo[idev],(ix,D0oy[idev],Nt,t0))
-    if(is_I[idev]    && even==0 &&  isTFSF) IFPMLS(torreITFSF0,1          ,Nth,0,stPMLm    ,(ix,Iy        ,Nt,t0))
-    if(is_I[idev]    && even==0 && !isTFSF) IFPMLS(torreI0    ,1          ,Nth,0,stPMLm    ,(ix,Iy        ,Nt,t0))
-    if(is_I[idev]    && even==1 &&  isTFSF) IFPMLS(torreITFSF1,1          ,Nth,0,stPMLm    ,(ix,Iy        ,Nt,t0))
-    if(is_I[idev]    && even==1 && !isTFSF) IFPMLS(torreI1    ,1          ,Nth,0,stPMLm    ,(ix,Iy        ,Nt,t0))
+    if(is_I[idev]    && even==0 &&  isTFSF) IFPMLS(torreITFSF0,1          ,Nth,0,stI       ,(ix,Iy        ,Nt,t0))
+    if(is_I[idev]    && even==0 && !isTFSF) IFPMLS(torreI0    ,1          ,Nth,0,stI       ,(ix,Iy        ,Nt,t0))
+    if(is_I[idev]    && even==1 &&  isTFSF) IFPMLS(torreITFSF1,1          ,Nth,0,stI       ,(ix,Iy        ,Nt,t0))
+    if(is_I[idev]    && even==1 && !isTFSF) IFPMLS(torreI1    ,1          ,Nth,0,stI       ,(ix,Iy        ,Nt,t0))
     if(is_X[idev]    && even==0           ) IFPMLS(torreX0    ,1          ,Nth,0,stX       ,(ix,Xy        ,Nt,t0))
     if(is_X[idev]    && even==1           ) IFPMLS(torreX1    ,1          ,Nth,0,stX       ,(ix,Xy        ,Nt,t0))
     if(is_P[idev]    && even==0           ) IFPMLS(torreD0    ,1          ,Nth,0,stP       ,(ix,Xy        ,Nt,t0))
     if(is_P[idev]    && even==1           ) IFPMLS(torreD1    ,1          ,Nth,0,stP       ,(ix,Iy        ,Nt,t0))
-    if(is_S[idev]    && even==0           ) IFPMLS(torreS0    ,SyBlk      ,Nth,0,stPMLp    ,(ix,Sy        ,Nt,t0))
-    if(is_S[idev]    && even==1           ) IFPMLS(torreS1    ,SyBlk      ,Nth,0,stPMLp    ,(ix,Sy        ,Nt,t0))
+    if(is_Sb[idev]   && even==0           ) IFPMLS(torreS0    ,SybBlk     ,Nth,0,stPMLm    ,(ix,Syb       ,Nt,t0))
+    if(is_Sb[idev]   && even==1           ) IFPMLS(torreS1    ,SybBlk     ,Nth,0,stPMLm    ,(ix,Syb       ,Nt,t0))
+    if(is_St[idev]   && even==0           ) IFPMLS(torreS0    ,SytBlk     ,Nth,0,stPMLp    ,(ix,Syt       ,Nt,t0))
+    if(is_St[idev]   && even==1           ) IFPMLS(torreS1    ,SytBlk     ,Nth,0,stPMLp    ,(ix,Syt       ,Nt,t0))
+    if(is_B[idev]    && even==0           ) IFPMLS(torreB0    ,1          ,Nth,0,stB       ,(ix,Dmy[idev]-1,Nt,t0))
+    if(is_B[idev]    && even==1           ) IFPMLS(torreB1    ,1          ,Nth,0,stB       ,(ix,Dmy[idev]-1,Nt,t0))
     if(is_many[idev] && even==0 && isTFSF ) IFPMLS(torreTFSF0 ,DmBlk[idev],Nth,0,stDm[idev],(ix,Dmy[idev] ,Nt,t0))
     if(is_many[idev] && even==1 && isTFSF ) IFPMLS(torreTFSF1 ,DmBlk[idev],Nth,0,stDm[idev],(ix,Dmy[idev] ,Nt,t0))
     if(is_many[idev] && even==0 && !isTFSF) IFPMLS(torreD0    ,DmBlk[idev],Nth,0,stDm[idev],(ix,Dmy[idev] ,Nt,t0))
@@ -122,36 +133,6 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
     if(is_oneU[idev] && even==0           ) for(int ixrag=ix; ixrag<ix+Nt-t0; ixrag++) DiamondRag::copyP(idev, ixrag, stDo[idev]);
   }
 
-  /*
-  if(even==0                       ) IFPMLS(torreI0   ,1   ,Nth,0,stPMLm   ,(ix,iym,Nt,t0))
-  if(even==1                       ) IFPMLS(torreI1   ,1   ,Nth,0,stPMLm   ,(ix,iym,Nt,t0))
-  for(int idev=0,nextY=0; idev<NDev; idev++) {
-    if(idev!=0) CHECK_ERROR( cudaSetDevice(idev) );
-    nextY+=NStripe[idev]; if(idev==NDev-1) nextY-=Npmly;
-    if(idev!=0) { iym=iyp;
-    if(iyp<nextY && even==1 && isTFSF ) IFPMLS(torreTFSF1,1,Nth,0,stDo[idev],(ix,iym,Nt,t0))
-    if(iyp<nextY && even==1 && !isTFSF) IFPMLS(torreD1   ,1,Nth,0,stDo[idev],(ix,iym,Nt,t0))
-    if(iyp<nextY && even==1 ) for(int ixrag=ix; ixrag<ix+Nt-t0; ixrag++) DiamondRag::copyM(idev, ixrag, stDo[idev]);
-    if(iyp<nextY) iyp++;
-    }
-    iym=iyp; Nblk=0;  while(iyp<nextY-(idev==NDev-1?0:1)) { iyp++; Nblk++; }
-    if(Nblk>0 && even==0 && isTFSF ) IFPMLS(torreTFSF0,Nblk,Nth,0,stDm[idev],(ix,iym,Nt,t0))
-    if(Nblk>0 && even==1 && isTFSF ) IFPMLS(torreTFSF1,Nblk,Nth,0,stDm[idev],(ix,iym,Nt,t0))
-    if(Nblk>0 && even==0 && !isTFSF) IFPMLS(torreD0   ,Nblk,Nth,0,stDm[idev],(ix,iym,Nt,t0))
-    if(Nblk>0 && even==1 && !isTFSF) IFPMLS(torreD1   ,Nblk,Nth,0,stDm[idev],(ix,iym,Nt,t0))
-    if(idev!=NDev-1) { iym=iyp;
-    if(iyp<nextY && even==0 && isTFSF ) IFPMLS(torreTFSF0,1,Nth,0,stDo[idev],(ix,iym,Nt,t0))
-    if(iyp<nextY && even==0 && !isTFSF) IFPMLS(torreD0   ,1,Nth,0,stDo[idev],(ix,iym,Nt,t0))
-    if(iyp<nextY && even==0 ) for(int ixrag=ix; ixrag<ix+Nt-t0; ixrag++) DiamondRag::copyP(idev, ixrag, stDo[idev]);
-    if(iyp<nextY) iyp++;
-    }
-  }
-  iym=iyp; Nblk=0;  while(iyp<Na-1        ) { iyp++; Nblk++; } 
-  if(Nblk>0 && even==0             ) IFPMLS(torreS0   ,Nblk,Nth,0,stPMLp   ,(ix,iym,Nt,t0))
-  if(Nblk>0 && even==1             ) IFPMLS(torreS1   ,Nblk,Nth,0,stPMLp   ,(ix,iym,Nt,t0))
-  if(even==0                       ) IFPMLS(torreX0   ,1   ,Nth,0,stX      ,(ix,iyp,Nt,t0))
-  if(even==1                       ) IFPMLS(torreX1   ,1   ,Nth,0,stX      ,(ix,iyp,Nt,t0))*/
-  
   CHECK_ERROR( cudaSetDevice(0) );
 
   if(!doneMemcopy) {
@@ -164,12 +145,16 @@ template<int even> inline void Window::Dtorre(int ix, int Nt, int t0, double dis
   if(even==1) parsHost.drop.save(stPMLm);
   CHECK_ERROR( cudaStreamSynchronize(stPMLm) ); 
   CHECK_ERROR( cudaStreamSynchronize(stPMLp) );
+  CHECK_ERROR( cudaStreamSynchronize(stI   ) );
   CHECK_ERROR( cudaStreamSynchronize(stX   ) );
+  CHECK_ERROR( cudaStreamSynchronize(stB   ) );
   for(int i=0;i<NDev;i++) CHECK_ERROR( cudaStreamSynchronize(stDo[i]) );
   for(int i=0;i<NDev;i++) { double tt=omp_get_wtime(); CHECK_ERROR( cudaStreamSynchronize(stDm[i]) ); disbal[i]+=omp_get_wtime()-tt; }
   CHECK_ERROR( cudaStreamDestroy(stPMLm) );
   CHECK_ERROR( cudaStreamDestroy(stPMLp) );
+  CHECK_ERROR( cudaStreamDestroy(stI   ) ); 
   CHECK_ERROR( cudaStreamDestroy(stX   ) ); 
+  CHECK_ERROR( cudaStreamDestroy(stB   ) ); 
   CHECK_ERROR( cudaStreamDestroy(stP   ) ); 
   for(int i=0;i<NDev;i++) CHECK_ERROR( cudaStreamDestroy(stDo[i]) );
   for(int i=0;i<NDev;i++) CHECK_ERROR( cudaStreamDestroy(stDm[i]) );

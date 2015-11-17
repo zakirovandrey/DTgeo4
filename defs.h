@@ -129,9 +129,9 @@ __device__ inline int get_iz(const int nth) {
 }
 __host__ __device__ inline int get_pml_iy(const int iy) {
   const int diy=(iy+Na)%Na;
-//  return (diy<Npmly/2)?diy:(diy-Na+Npmly);
-  const int pmliy=iy-Na+Npmly;
-  return pmliy;
+  return (diy<Npmly/2)?diy:(diy-Na+Npmly);
+  //const int pmliy=iy-Na+Npmly;
+  //return pmliy;
 }
 __device__ inline int get_pml_ix(const int ix) {
   if (ix<Npmlx/2*2*NDT) return (ix+KNpmlx)%KNpmlx;
@@ -185,7 +185,7 @@ extern __shared__ ftype2 shared_fld[SHARED_SIZE][Nv];
   int I; register htype h[100];\
   ftype2 regPml; ftype regPml2; \
   ftype2 reg_fldV[250], reg_fldS[250]; ftype reg_R;\
-  const int dStepT=1, dStepX=1, dStepRag=Na, dStepRagPML=Npmly; \
+  const int dStepT=1, dStepX=1, dStepRag=Na, dStepRagPML=Npmly/2; \
       ftype src0x,src1x,src2x,src3x;\
       ftype src0y,src1y,src2y,src3y;\
       ftype src0z,src1z,src2z,src3z;\
@@ -221,9 +221,9 @@ extern __shared__ ftype2 shared_fld[SHARED_SIZE][Nv];
   DiamondRag      * __restrict__ RAGpp      = RAGpc+1;\
   /*DiamondRag      * __restrict__ rm      = &pars.rags[idevM][ix*Na   +(iy-1+Na)%Na];*/\
   /*DiamondRag      * __restrict__ rp      = &pars.rags[idevP][ix*Na   +(iy+1   )%Na];*/\
-  DiamondRagPML   * __restrict__ ApmlRAGcc  = &pars.ragsPMLa[ix *Npmly+get_pml_iy(iy)];\
-  DiamondRagPML   * __restrict__ ApmlRAGmc  = &pars.ragsPMLa[ixm*Npmly+get_pml_iy(iy)];\
-  DiamondRagPML   * __restrict__ ApmlRAGpc  = &pars.ragsPMLa[ixp*Npmly+get_pml_iy(iy)];\
+  DiamondRagPML   * __restrict__ ApmlRAGcc  = &pars.ragsPMLa[idevC][ix *Npmly/2+get_pml_iy(iy)%(Npmly/2)];\
+  DiamondRagPML   * __restrict__ ApmlRAGmc  = &pars.ragsPMLa[idevC][ixm*Npmly/2+get_pml_iy(iy)%(Npmly/2)];\
+  DiamondRagPML   * __restrict__ ApmlRAGpc  = &pars.ragsPMLa[idevC][ixp*Npmly/2+get_pml_iy(iy)%(Npmly/2)];\
   DiamondRagPML   * __restrict__ SpmlRAGcc;/*  = &pars.ragsPMLs[idevC][((ix  <Npmlx/2)? ix   :(ix  -Ns+Npmlx))*dStepRagC   +iy-ymC];*/\
   DiamondRagPML   * __restrict__ SpmlRAGmc;/*  = &pars.ragsPMLs[idevC][((ix-1<Npmlx/2)?(ix-1):(ix-1-Ns+Npmlx))*dStepRagC   +iy-ymC];*/\
   DiamondRagPML   * __restrict__ SpmlRAGpc;/*  = &pars.ragsPMLs[idevC][((ix+1<Npmlx/2)?(ix+1):(ix+1-Ns+Npmlx))*dStepRagC   +iy-ymC];*/\

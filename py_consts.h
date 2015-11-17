@@ -18,7 +18,7 @@ typedef float ftype;
 #define NasyncNodes 1
 //#define GPUDIRECT_RDMA
 
-//#define USE_AIVLIB_MODEL
+#define USE_AIVLIB_MODEL
 //#define MPI_ON
 //#define TEST_RATE
 #define USE_WINDOW
@@ -48,7 +48,7 @@ const int GridNz=3*NA;
 #endif
 
 const int Npmlx=2*5;//2*24;
-const int Npmly=5;//24;
+const int Npmly=2*5;//24;
 const int Npmlz=2*16;//128;
 
 const ftype ds=25./2, da=6.95, dv=25./2, dt=2./3.;

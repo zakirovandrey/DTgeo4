@@ -191,7 +191,7 @@ void ModelTexs::init(){
       int aivTexStepY=2*Nz/(texNy-1); //in half-YeeCells
       for(int xx=(ix==texNx-1?1:0); xx<((ix==0)?1:aivTexStepX); xx++) for(int yy=(iy==texNy-1?1:0); yy<((iy==0)?1:aivTexStepY); yy++) {
         for(int iz=0; iz<Na*NDT*2; iz++) {
-          unsigned short h = get_h(ix*aivTexStepX-xx, iy*aivTexStepY-yy, -iz*0.5*da);
+          unsigned short h = get_h(ix*aivTexStepX-xx, iy*aivTexStepY-yy, min(0.,Npmly/2*NDT-iz*0.5)*da);
           int id = h/(2*h_scale), idd=h%(2*h_scale); 
           //int id = floor((h)/double(1<<16)*112);
           float rho1 = rhoArr[2*id];
@@ -368,10 +368,10 @@ void ModelRag::set(int x, int y) {
     for(int i=0;i<32;i++) for(int iz=0;iz<Nz;iz++) {
       int3 x4h;
       x4h = make_int3(x*2*NDT+d_index[2*i  ][0], iz*2+d_index[2*i  ][2], y*2*NDT+d_index[2*i  ][1]); x4h = check_bounds(x4h);
-      h[i][iz].x = get_h(x4h.x, x4h.y, -x4h.z*0.5*dy) + parsHost.texs.h_scale/2;
+      h[i][iz].x = get_h(x4h.x, x4h.y, min(0.,Npmly/2*NDT-x4h.z*0.5)*dy) + parsHost.texs.h_scale/2;
       //h[i][iz].x = ((x4h.x*x4h.y-x4h.z*0.5*dy)*corrCoff1+0.5)*corrCoff2;
       x4h = make_int3(x*2*NDT+d_index[2*i+1][0], iz*2+d_index[2*i+1][2], y*2*NDT+d_index[2*i+1][1]); x4h = check_bounds(x4h);
-      h[i][iz].y = get_h(x4h.x, x4h.y, -x4h.z*0.5*dy) + parsHost.texs.h_scale/2;
+      h[i][iz].y = get_h(x4h.x, x4h.y, min(0.,Npmly/2*NDT-x4h.z*0.5)*dy) + parsHost.texs.h_scale/2;
       //h[i][iz].y = ((x4h.x*x4h.y-x4h.z*0.5*dy)*corrCoff1+0.5)*corrCoff2;
     }
     #endif

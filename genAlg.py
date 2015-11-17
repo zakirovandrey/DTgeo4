@@ -163,7 +163,7 @@ class data():
     #print "  TEXCOFF%s(%d, %+d, %+d, iz*2%+d, I,h[%2d]);"%(self.typus+('','xyz'[fld.proj])[fld.typus=='T'],hind,self.coord[0],self.coord[1],self.coord[2], hind)
     if self.typus!="S" or self.proj==0: print "  coff%s = Arrcoff%s[%d];"%(self.typus,self.typus,hind)
     pml=1; pmlx=0; pmly=0; pmlz=1
-    if data.Atype=='S' or data.Atype[0]=='X': pmly=1
+    if data.Atype=='S' or data.Atype[0]=='I' or data.Atype[0]=='X': pmly=1
     difx, dify, difz = None, None, None
     acc_coff = {2:["1",], 4:["p27","1"]}[order]
     if self.neigh[0][0].name: difx = "-%13s+%13s+%s*%13s-%s*%13s"%(self.neigh[0][2].name, self.neigh[0][3].name, acc_coff[0],self.neigh[0][0].name, acc_coff[0],self.neigh[0][1].name, )
@@ -240,7 +240,7 @@ class data():
       if data.PMLS and pmlx==1: print "  } else {"
     if data.PMLS: print "  }"
 
-    if data.Atype[0]=='I' and not isOutA(self.coord[1], data.Atype) and isOutA(self.coord[1]-2, data.Atype):
+    if data.Atype[0]=='B' and (self.coord[1]==YbndI or self.coord[1]==YbndI+1):
       print "  %s+= SrcSurf_%s%s(glob_ix*2*NDT+(%g), iz*2+(%g), %g+iy*2*NDT, pars.iStep*Ntime+it+%g);"%(self.name, self.typus,'xyz'[self.proj], self.coord[0], self.coord[2], self.coord[1], time)
       if self.typus!="S": print "  #ifndef DROP_ONLY_V"
       if self.typus=="S": fval = "%s*0.5625+%s*0.5625-%s*0.0625-%s*0.0625"%tuple(map(lambda n: n.name, self.neigh[self.proj]))
@@ -348,7 +348,7 @@ class DiamondTorre():
   def loop(self):
     print "for(;it<Nt;it+=dStepT, ix=(ix+dStepX)%Ns, glob_ix+=dStepX/*, RAGcc+=dStepRagC, rm+=dStepRagM, rp+=dStepRagP, rcPMLa+=dStepRagPML, rcPMLs+=dStepRagC*/) {"
     print "  PTR_DEC"
-    if data.Atype[0]=='I': print "  RPOINT_CHUNK_HEAD"
+    if data.Atype[0]=='B': print "  RPOINT_CHUNK_HEAD"
     shrn=-1; time=0;
     for did,d in enumerate(self.dmds[-2:]):
       print "  #if TEX_MODEL_TYPE==1\n  I = modelRag%s->I[%d][iz];\n  #endif"%("MCP"[1+d.plsId[0]],d.DmdId)
@@ -425,7 +425,7 @@ class DiamondTorre():
           #renewing names
           for dd in self.dmds: dd.upgrade_names()
       time+=0.5
-    if data.Atype[0]=='I': print "  RPOINT_CHUNK_SHIFT"
+    if data.Atype[0]=='B': print "  RPOINT_CHUNK_SHIFT"
     print "}"
   def finalize(self):
     #print "it-=dStepT; ix-=dStepX; r0-=dStepRag;"
