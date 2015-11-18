@@ -416,7 +416,7 @@ void setPMLcoeffs(ftype* k1x, ftype* k2x, ftype* k1y, ftype* k2y, ftype* k1z, ft
     k1x[i] = 2.0*k2x[i]-1;
   }
   for(int i=0; i<KNpmly; i++){
-    k2y[i] = 1.0/(1.0+0.5*dt*PMLgamma_funcY(KNpmly-i, KNpmly, dy));
+    k2y[i] = 1.0/(1.0+0.5*dt*PMLgamma_funcY(KNpmly/2-abs(i-KNpmly/2), KNpmly/2, dy));
     k1y[i] = 2.0*k2y[i]-1;
   }
   for(int i=0; i<KNpmlz; i++){
@@ -507,16 +507,14 @@ void GeoParamsHost::set(){
     CHECK_ERROR( cudaMalloc( (void**)&(ragsPMLsL[idev]), size_xzPMLs*NStripe[idev]    ) );
     CHECK_ERROR( cudaMalloc( (void**)&(ragsPMLsR[idev]), size_xzPMLs*NStripe[idev]    ) );
     #endif
-    if(idev==NDev-1)
-    CHECK_ERROR( cudaMalloc( (void**)& ragsPMLa       , szPMLa ) );
+    CHECK_ERROR( cudaMalloc( (void**)& ragsPMLa[idev]  , szPMLa/2 ) );
     CHECK_ERROR( cudaMemset(rags   [idev], 0, size_xz     *NStripe[idev]) );
     CHECK_ERROR( cudaMemset(ragsInd[idev], 0, size_xzModel*NStripe[idev]) );
     #ifndef USE_WINDOW
     cudaMemset(ragsPMLsL[idev], 0,  size_xzPMLs*NStripe[idev]);
     cudaMemset(ragsPMLsR[idev], 0,  size_xzPMLs*NStripe[idev]);
     #endif
-    if(idev==NDev-1)
-    CHECK_ERROR( cudaMemset(ragsPMLa     , 0,                     szPMLa) );
+    CHECK_ERROR( cudaMemset(ragsPMLa[idev], 0,                     szPMLa/2) );
   }
   CHECK_ERROR( cudaSetDevice(0) );
 
