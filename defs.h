@@ -31,10 +31,13 @@ template<class Ph, class Pd> static void copy2dev(Ph &hostP, Pd &devP) {
   CHECK_ERROR( cudaSetDevice(0) );
 }
 //__device__ __forceinline__ static bool isOutS(const int x) { return (x<0+NDT || x>=Ns*2*NDT-2*NDT); }
-__device__ __forceinline__ static bool isOutS(const int x) { return (x<0+NDT || x>=Ns*2*NDT-NDT); }
+__device__ __forceinline__ static bool isOutS(const int x) { return (x<=0+NDT || x>=Ns*2*NDT-NDT); }
 //__device__ __forceinline__ static bool isOutS(const int x) { return false; }
+#ifdef NOPMLS
+__device__ __forceinline__ static bool inPMLsync(const int x) { return 0; }
+#else
 __device__ __forceinline__ static bool inPMLsync(const int x) { return (x<Npmlx/2*2*NDT-NDT && x>=0 || x<Ns*2*NDT && x>=Ns*2*NDT-Npmlx/2*2*NDT+NDT); }
-//__device__ __forceinline__ static bool inPMLsync(const int x) { return true; }
+#endif
 
 #ifdef USE_TEX_REFS
 #define TEX_MODEL_TYPE 0
@@ -54,12 +57,12 @@ __device__ __forceinline__ static bool inPMLsync(const int x) { return (x<Npmlx/
 #define TEXCOFFV(nind,xt,yt,z,I,h) ArrcoffV[nind] = tex3D<float >(pars.texs.TexlayerV[curDev], h*texStretchH, (z)*texStretchY, GLOBAL(xt)*texStretch[0]); /*if(threadIdx.x==Nz/2) printf("coffV(%d %d %d)=%g\n", xt,z,h, coffV);*/
 #define TEXCOFFT(nind,xt,yt,z,I,h) ArrcoffT[nind] = tex3D<float >(pars.texs.TexlayerT[curDev], h*texStretchH, (z)*texStretchY, GLOBAL(xt)*texStretch[0]); /*if(threadIdx.x==Nz/2) printf("coffT(%d %d %d)=%g\n", xt,z,h, coffT);*/
 #define TEXCOFFS(nind,xt,yt,z,I,h) ArrcoffS[nind] = tex3D<float2>(pars.texs.TexlayerS[curDev], h*texStretchH, (z)*texStretchY, GLOBAL(xt)*texStretch[0]); /*if(threadIdx.x==Nz/2) printf("coffS(%d %d %d)=%g,%g\n", xt,z,h, coffS.x, coffS.y);*/
-#endif
+#endif //TEX_MODEL_TYPE
 #ifdef USE_TEX_REFS
 
 #ifdef CUDA_TEX_INTERP
 #define GET_TEX_INTERP(text,z,h,xt) tex3D(text, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x)
-#else
+#else //CUDA_TEX_INTERP not def
 #define GET_TEX_INTERP(text,z,h,xt) \
   tex3D(text, (z)*texStretch[0].y+texShift[0].y, afloor+0.5f, bfloor+0.5f)*(1.0f-alpha)*(1.0f-beta)+\
   tex3D(text, (z)*texStretch[0].y+texShift[0].y, afloor+1.5f, bfloor+0.5f)*alpha*(1.0f-beta)+\
@@ -73,7 +76,7 @@ __device__ __forceinline__ static bool inPMLsync(const int x) { return (x<Npmlx/
   (1.0f-(h*texStretchH-0.5f-int(h*texStretchH-0.5f)))*(     (GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f-int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)))+\
   tex3D(text, (z)*texStretch[0].y+texShift[0].y, int(h*texStretchH-0.5f)+1.5f, int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)+1.5f)*\
   (     (h*texStretchH-0.5f-int(h*texStretchH-0.5f)))*(     (GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f-int(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f)))*/
-#endif
+#endif //CUDA_TEX_INTERP
 
 // tex3D(text, (z)*texStretch[0].y+texShift[0].y, h*texStretchH, GLOBAL(xt)*texStretch[0].x+texShift[0].x)
 
@@ -86,7 +89,7 @@ __device__ __forceinline__ static bool inPMLsync(const int x) { return (x<Npmlx/
 afloor=floorf(h*texStretchH-0.5f); alpha = h*texStretchH-0.5f-afloor; \
 bfloor=floorf(GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f); beta = GLOBAL(xt)*texStretch[0].x+texShift[0].x-0.5f-bfloor; \
 bfloor = int(bfloor)%texNwindow; bceil = int(bfloor+1)%texNwindow;
-#endif
+#endif //CUDA_TEX_INTERP
 #define TEXCOFFS(nind,xt,yt,z,I,h)  CALC_A_B(h,xt);\
  ArrcoffS[nind] = GET_TEX_INTERP(layerRefS, z,h,xt); 
 //if(threadIdx.x==0 && blockIdx.x==0) printf("S at %d using texture X-coord %g and %g /////%d and %d// alpha=%g beta=%g h=%d,iy=%d ArrcoffS=%g %g\n", GLOBAL(xt), bfloor, bceil, int(bfloor)%5, int(bfloor+1)%5,alpha,beta,h,iy, ArrcoffS[nind].x,ArrcoffS[nind].y );
@@ -120,7 +123,7 @@ ArrcoffT[nind] = GET_TEX_INTERP(layerRefT, z,h,xt);
 #define TEXCOFFV(nind,xt,yt,z,I,h) ArrcoffV[nind] = coffV;
 #define TEXCOFFT(nind,xt,yt,z,I,h) ArrcoffT[nind] = coffT;
 #define TEXCOFFS(nind,xt,yt,z,I,h) ArrcoffS[nind] = coffS;
-#endif
+#endif//COFFS_DEFAULT
 __device__ inline int get_iz(const int nth) {
   int iz=nth;
   if(nth<Npmlz && nth>=Npmlz/2) iz+=Nv-Npmlz;
@@ -153,7 +156,7 @@ __device__ inline int Vrefl(const int iz, const int incell=0) {
 struct __align__(16) ftype8 { ftype4 u, v; };
 //extern __shared__ ftypr2 shared_fld[2][7][Nv];
 //extern __shared__ ftype2 shared_fld[(FTYPESIZE*Nv*28>0xc000)?7:14][Nv];
-extern __shared__ ftype2 shared_fld[SHARED_SIZE][Nv];
+extern __shared__ ftype2 shared_fld[SHARED_SIZE][NzMax];
 #ifdef DROP_ONLY_V
 #define DEC_CHUNKS_0 const int chunkSi[]={ 0,2}, chunkTx[]={0,0}, chunkTy[]={0,0}, chunkTz[]={0,0}, chunkVx[]={0,0}, chunkVy[]={0,0}, chunkVz[]={0,0};
 #define DEC_CHUNKS_1 const int chunkSi[]={-1,0}, chunkTx[]={0,0}, chunkTy[]={0,0}, chunkTz[]={0,0}, chunkVx[]={0,0}, chunkVy[]={0,0}, chunkVz[]={0,0};
@@ -167,16 +170,32 @@ extern __shared__ ftype2 shared_fld[SHARED_SIZE][Nv];
   channelTx = pars.drop.channelAddr[3]; channelTy = pars.drop.channelAddr[4]; channelTz = pars.drop.channelAddr[5];\
   channelVx = pars.drop.channelAddr[6]; channelVy = pars.drop.channelAddr[7]; channelVz = pars.drop.channelAddr[8];
 #endif
+#define tshift_coeff Ntime
+#ifdef TEST_RATE
+#define BLOCK_SPACING TEST_RATE
+#else
+#define BLOCK_SPACING 1
+#endif
+
+#ifdef SPLIT_ZFORM
+#define ZFROMTHREAD izBeg-5+threadIdx.x
+#else 
+#define ZFROMTHREAD get_iz(threadIdx.x)
+#endif
+
 #define REG_DEC(EVENTYPE) \
-  const int iy=y0+blockIdx.x;\
+  const int iy=(y0+BLOCK_SPACING*blockIdx.x)%Na;\
+  const int tshift=tshift_coeff*pars.iStep;\
   const bool inPMLv = (threadIdx.x<Npmlz);\
-  const int iz=get_iz(threadIdx.x); const int pml_iz=threadIdx.x, Kpml_iz=2*threadIdx.x;\
+  const int iz=ZFROMTHREAD; const int pml_iz=threadIdx.x, Kpml_iz=2*threadIdx.x;\
+  if(iz<0 || iz>=Nv) return;\
+  const int eventype=EVENTYPE;\
   /*const int izP0=iz, izP1 = (iz+1)%Nv, izP2 = (iz+2)%Nv, izM1 = (iz-1+Nv)%Nv, izM2 = (iz-2+Nv)%Nv;*/\
-  const int izP0=iz, izP0m=iz, izP1m = Vrefl(iz+1,0), izP2m = Vrefl(iz+2,0), izM1m = Vrefl(iz-1,0), izM2m = Vrefl(iz-2,0);\
-  const int          izP0c=iz, izP1c = Vrefl(iz+1,1), izP2c = Vrefl(iz+2,1), izM1c = Vrefl(iz-1,1), izM2c = Vrefl(iz-2,1);\
-  const int Kpml_iy=get_pml_iy(iy)*NDT*2+NDT-1; int Kpml_ix=0;\
+  const int izP0=threadIdx.x, izP0m=izP0, izP1m = Vrefl(iz+1,0)-iz+izP0, izP2m = Vrefl(iz+2,0)-iz+izP0, izM1m = Vrefl(iz-1,0)-iz+izP0, izM2m = Vrefl(iz-2,0)-iz+izP0;\
+  const int                   izP0c=izP0, izP1c = Vrefl(iz+1,1)-iz+izP0, izP2c = Vrefl(iz+2,1)-iz+izP0, izM1c = Vrefl(iz-1,1)-iz+izP0, izM2c = Vrefl(iz-2,1)-iz+izP0;\
+  const int Kpml_iy=get_pml_iy(iy)*NDT*2; int Kpml_ix=0;\
   int it=t0; ftype difx[100],dify[100],difz[100]; ftype zerov=0.;\
-  register ftype  coffV = defCoff::drho*dtdrd24, coffT=defCoff::Vs*defCoff::Vs*defCoff::rho*dtdrd24; \
+  register ftype coffV = defCoff::drho*dtdrd24, coffT=defCoff::Vs*defCoff::Vs*defCoff::rho*dtdrd24; \
   register coffS_t coffS = DEF_COFF_S;\
   register ftype ArrcoffV[100], ArrcoffT[100];\
   register coffS_t ArrcoffS[100];\
@@ -185,7 +204,9 @@ extern __shared__ ftype2 shared_fld[SHARED_SIZE][Nv];
   int I; register htype h[100];\
   ftype2 regPml; ftype regPml2; \
   ftype2 reg_fldV[250], reg_fldS[250]; ftype reg_R;\
-  const int dStepT=1, dStepX=1, dStepRag=Na, dStepRagPML=Npmly/2; \
+  const int iy_p0=iy, iy_p1=iy+1, iy_p2=iy+2, iy_p3=iy+3;\
+  const int iy_m1=iy-1, iy_m2=iy-2;\
+  const int dStepT=1, dStepX=1, dStepRag=Na, dStepRagPML=Npmly; \
       ftype src0x,src1x,src2x,src3x;\
       ftype src0y,src1y,src2y,src3y;\
       ftype src0z,src1z,src2z,src3z;\
@@ -198,7 +219,7 @@ extern __shared__ ftype2 shared_fld[SHARED_SIZE][Nv];
   const int idevC=get_idev(iy  ,ymC); \
   const int idevM=get_idev(iy-1,ymM); \
   const int idevP=get_idev(iy+1,ymP); \
-  if(idevC==0) { DEC_CHANNEL_PTR }\
+  /*if(idevC==0) { DEC_CHANNEL_PTR }*/\
   int y_tmp=0; const int curDev=get_idev(y0, y_tmp); \
   const int dStepRagC=NStripe(idevC);\
   const int dStepRagM=NStripe(idevM);\
@@ -207,6 +228,15 @@ extern __shared__ ftype2 shared_fld[SHARED_SIZE][Nv];
   DiamondRag      * __restrict__ RAGcc      = RAG0+ ix           *dStepRagC;\
   DiamondRag      * __restrict__ RAGmc      = RAG0+((ix-1+Ns)%Ns)*dStepRagC;\
   ModelRag * __restrict__ modelRag = &pars.ragsInd[curDev][iy-ymC];\
+  int xstart=ix;\
+  const bool isTopStripe = (curDev==NDev-1 && pars.subnode==NasyncNodes-1);\
+  const bool isBotStripe = (curDev==0      && pars.subnode==0            );\
+  if(iy==ymC+NStripe(curDev)-1 && !isTopStripe) if(EVENTYPE==0) load_buffer<EVENTYPE>(RAG0, pars.p2pBufP[curDev], xstart, t0, Nt, curDev, iz,pml_iz,inPMLv);\
+  if(iy==ymC                   && !isBotStripe) if(EVENTYPE==1) load_buffer<EVENTYPE>(RAG0, pars.p2pBufM[curDev], xstart, t0, Nt, curDev, iz,pml_iz,inPMLv);
+
+#define POSTEND(EVENTYPE)\
+  //if(iy==ymC+NStripe(curDev)-1 && !isTopStripe) if(EVENTYPE==0) save_buffer<EVENTYPE>(RAG0, pars.p2pBufP[curDev], xstart, t0, Nt, curDev, iz,pml_iz,inPMLv);\
+  if(iy==ymC                   && !isBotStripe) if(EVENTYPE==1) save_buffer<EVENTYPE>(RAG0, pars.p2pBufM[curDev], xstart, t0, Nt, curDev, iz,pml_iz,inPMLv);
 
 #define PTR_DEC \
   const int ixm=(ix-1+Ns)%Ns, ixp=(ix+1)%Ns;\
@@ -219,11 +249,9 @@ extern __shared__ ftype2 shared_fld[SHARED_SIZE][Nv];
   DiamondRag      * __restrict__ RAGpc      = RAG0+ixp*dStepRagC;\
   DiamondRag      * __restrict__ RAGpm      = RAGpc-1;\
   DiamondRag      * __restrict__ RAGpp      = RAGpc+1;\
-  /*DiamondRag      * __restrict__ rm      = &pars.rags[idevM][ix*Na   +(iy-1+Na)%Na];*/\
-  /*DiamondRag      * __restrict__ rp      = &pars.rags[idevP][ix*Na   +(iy+1   )%Na];*/\
-  DiamondRagPML   * __restrict__ ApmlRAGcc  = &pars.ragsPMLa[idevC][ix *Npmly/2+get_pml_iy(iy)%(Npmly/2)];\
-  DiamondRagPML   * __restrict__ ApmlRAGmc  = &pars.ragsPMLa[idevC][ixm*Npmly/2+get_pml_iy(iy)%(Npmly/2)];\
-  DiamondRagPML   * __restrict__ ApmlRAGpc  = &pars.ragsPMLa[idevC][ixp*Npmly/2+get_pml_iy(iy)%(Npmly/2)];\
+  DiamondRagPML   * __restrict__ ApmlRAGcc  = &pars.ragsPMLa[idevC][ix *Npmly+get_pml_iy(iy)%(Npmly)];\
+  DiamondRagPML   * __restrict__ ApmlRAGmc  = &pars.ragsPMLa[idevC][ixm*Npmly+get_pml_iy(iy)%(Npmly)];\
+  DiamondRagPML   * __restrict__ ApmlRAGpc  = &pars.ragsPMLa[idevC][ixp*Npmly+get_pml_iy(iy)%(Npmly)];\
   DiamondRagPML   * __restrict__ SpmlRAGcc;/*  = &pars.ragsPMLs[idevC][((ix  <Npmlx/2)? ix   :(ix  -Ns+Npmlx))*dStepRagC   +iy-ymC];*/\
   DiamondRagPML   * __restrict__ SpmlRAGmc;/*  = &pars.ragsPMLs[idevC][((ix-1<Npmlx/2)?(ix-1):(ix-1-Ns+Npmlx))*dStepRagC   +iy-ymC];*/\
   DiamondRagPML   * __restrict__ SpmlRAGpc;/*  = &pars.ragsPMLs[idevC][((ix+1<Npmlx/2)?(ix+1):(ix+1-Ns+Npmlx))*dStepRagC   +iy-ymC];*/\
@@ -239,45 +267,35 @@ extern __shared__ ftype2 shared_fld[SHARED_SIZE][Nv];
   ModelRag * __restrict__ modelRagM = modelRag +ixm*dStepRagC;\
   ModelRag * __restrict__ modelRagP = modelRag +ixp*dStepRagC;\
   /*if(threadIdx.x==0 && ix==11) printf("sRAGcc=%p, sRAGmc=%p, sRAGpc=%p, sRAG0=%p\n", SpmlRAGcc, SpmlRAGmc, SpmlRAGpc, pars.ragsPMLs[idevC] );*/\
-  /*if(threadIdx.x==0 && blockIdx.x==0) printf(" steps %d %d %d idev %d %d %d ymC,ymM,ymP=%d,%d,%d ix=%d iy=%d rcc=%p, rcm=%p, rcp=%p, rmc=%p, rmm=%p, rmp=%p, rpc=%p, rpm=%p, rpp=%p, rccPMLa=%p, rmcPMLa=%p, rpcPMLa=%p, rccPMLs=%p, rmcPMLs=%p, rpcPMLs=%p\n", dStepRagC, dStepRagM, dStepRagP, idevC, idevM, idevP, ymC, ymM, ymP, ix, iy,  RAGcc, RAGcm, RAGcp, RAGmc, RAGmm, RAGmp, RAGpc, RAGpm, RAGpp, ApmlRAGcc, ApmlRAGmc, ApmlRAGpc, SpmlRAGcc, SpmlRAGmc, SpmlRAGpc);*/\
+  /*if(threadIdx.x==0 && blockIdx.x==0) printf(" steps %d %d %d idev %d %d %d ymC,ymM,ymP=%d,%d,%d ix=%d iy=%d rcc=%p, rcm=%p, rcp=%p, rmc=%p, rmm=%p, rmp=%p, rpc=%p, rpm=%p, rpp=%p, rccPMLa=%p, rmcPMLa=%p, rpcPMLa=%p, rccPMLs=%p, rmcPMLs=%p, rpcPMLs=%p\n", dStepRagC, dStepRagM, dStepRagP, idevC, idevM, idevP, ymC, ymM, ymP, ix, iy,  RAGcc, RAGcm, RAGcp, RAGmc, RAGmm, RAGmp, RAGpc, RAGpm, RAGpp, ApmlRAGcc, ApmlRAGmc, ApmlRAGpc, SpmlRAGcc, SpmlRAGmc, SpmlRAGpc);*/
 
-#define RPOINT_CHUNK_HEAD\
-  if(threadIdx.x==blockDim.x-1) {\
-  if(pars.iStep>0) {\
-    for(int ich=0;ich<NDRP;ich++) if(pars.drop.channelAddr[ich]+3+3>=pars.drop.channel[ich]+pars.drop.channelDevLength) {\
-      printf("Error: Length of Device channel %d is exceeded (to fix increase channelDevLength value)\n", ich); return; } }\
-  if(chunkSi[1]-chunkSi[0]>0 && glob_ix*NDT+chunkSi[0]>=0) { channelSx[0]=ftype(pars.iStep*Ntime+it); channelSx[1]=ftype(glob_ix*NDT+chunkSi[0]); channelSx[2]=ftype(glob_ix*NDT+chunkSi[1]); }\
-  if(chunkSi[1]-chunkSi[0]>0 && glob_ix*NDT+chunkSi[0]>=0) { channelSy[0]=ftype(pars.iStep*Ntime+it); channelSy[1]=ftype(glob_ix*NDT+chunkSi[0]); channelSy[2]=ftype(glob_ix*NDT+chunkSi[1]); }\
-  if(chunkSi[1]-chunkSi[0]>0 && glob_ix*NDT+chunkSi[0]>=0) { channelSz[0]=ftype(pars.iStep*Ntime+it); channelSz[1]=ftype(glob_ix*NDT+chunkSi[0]); channelSz[2]=ftype(glob_ix*NDT+chunkSi[1]); }\
-  if(chunkTx[1]-chunkTx[0]>0 && glob_ix*NDT+chunkTx[0]>=0) { channelTx[0]=ftype(pars.iStep*Ntime+it); channelTx[1]=ftype(glob_ix*NDT+chunkTx[0]); channelTx[2]=ftype(glob_ix*NDT+chunkTx[1]); }\
-  if(chunkTy[1]-chunkTy[0]>0 && glob_ix*NDT+chunkTy[0]>=0) { channelTy[0]=ftype(pars.iStep*Ntime+it); channelTy[1]=ftype(glob_ix*NDT+chunkTy[0]); channelTy[2]=ftype(glob_ix*NDT+chunkTy[1]); }\
-  if(chunkTz[1]-chunkTz[0]>0 && glob_ix*NDT+chunkTz[0]>=0) { channelTz[0]=ftype(pars.iStep*Ntime+it); channelTz[1]=ftype(glob_ix*NDT+chunkTz[0]); channelTz[2]=ftype(glob_ix*NDT+chunkTz[1]); }\
-  if(chunkVx[1]-chunkVx[0]>0 && glob_ix*NDT+chunkVx[0]>=0) { channelVx[0]=ftype(pars.iStep*Ntime+it); channelVx[1]=ftype(glob_ix*NDT+chunkVx[0]); channelVx[2]=ftype(glob_ix*NDT+chunkVx[1]); }\
-  if(chunkVy[1]-chunkVy[0]>0 && glob_ix*NDT+chunkVy[0]>=0) { channelVy[0]=ftype(pars.iStep*Ntime+it); channelVy[1]=ftype(glob_ix*NDT+chunkVy[0]); channelVy[2]=ftype(glob_ix*NDT+chunkVy[1]); }\
-  if(chunkVz[1]-chunkVz[0]>0 && glob_ix*NDT+chunkVz[0]>=0) { channelVz[0]=ftype(pars.iStep*Ntime+it); channelVz[1]=ftype(glob_ix*NDT+chunkVz[0]); channelVz[2]=ftype(glob_ix*NDT+chunkVz[1]); }\
-  }\
-  if(chunkSi[1]-chunkSi[0]>0 && glob_ix*NDT+chunkSi[0]>=0) {channelSx+=3; channelSy+=3; channelSz+=3;}\
-  if(chunkTx[1]-chunkTx[0]>0) channelTx+=3; if(chunkTy[1]-chunkTy[0]>0) channelTy+=3; if(chunkTz[1]-chunkTz[0]>0) channelTz+=3; \
-  if(chunkVx[1]-chunkVx[0]>0) channelVx+=3; if(chunkVy[1]-chunkVy[0]>0) channelVy+=3; if(chunkVz[1]-chunkVz[0]>0) channelVz+=3;\
+#ifdef SPLIT_ZFORM
+#define isCONzT(xc,zc) \
+2*iz+zc>=izBeg*2-xc     && 2*iz+zc<izEnd*2+xc     &&          zform==0 && eventype==0 || \
+2*iz+zc>=izBeg*2+xc-6   && 2*iz+zc<izEnd*2-xc+6   &&          zform==1 && eventype==0 || \
+2*iz+zc>=izBeg*2-xc-3   && 2*iz+zc<izEnd*2+xc+3   && xc<3  && zform==0 && eventype==1 || \
+2*iz+zc>=izBeg*2-xc+3   && 2*iz+zc<izEnd*2+xc-3   && xc>=3 && zform==0 && eventype==1 || \
+2*iz+zc>=izBeg*2+xc+3-6 && 2*iz+zc<izEnd*2-xc-3+6 && xc<3  && zform==1 && eventype==1 || \
+2*iz+zc>=izBeg*2+xc-3-6 && 2*iz+zc<izEnd*2-xc+3+6 && xc>=3 && zform==1 && eventype==1
 
-#define RPOINT_CHUNK_SHIFT\
-  if(glob_ix*NDT+chunkSi[0]>=0) for(int xdrop=chunkSi[0]; xdrop<chunkSi[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelSx+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
-  if(glob_ix*NDT+chunkSi[0]>=0) for(int xdrop=chunkSi[0]; xdrop<chunkSi[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelSy+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
-  if(glob_ix*NDT+chunkSi[0]>=0) for(int xdrop=chunkSi[0]; xdrop<chunkSi[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelSz+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
-  if(glob_ix*NDT+chunkTx[0]>=0) for(int xdrop=chunkTx[0]; xdrop<chunkTx[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelTx+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
-  if(glob_ix*NDT+chunkTy[0]>=0) for(int xdrop=chunkTy[0]; xdrop<chunkTy[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelTy+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
-  if(glob_ix*NDT+chunkTz[0]>=0) for(int xdrop=chunkTz[0]; xdrop<chunkTz[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelTz+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
-  if(glob_ix*NDT+chunkVx[0]>=0) for(int xdrop=chunkVx[0]; xdrop<chunkVx[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelVx+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
-  if(glob_ix*NDT+chunkVy[0]>=0) for(int xdrop=chunkVy[0]; xdrop<chunkVy[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelVy+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
-  if(glob_ix*NDT+chunkVz[0]>=0) for(int xdrop=chunkVz[0]; xdrop<chunkVz[1]; xdrop++) for(int iwarp=0; iwarp<Nz/WSIZE; iwarp++) channelVz+= __popc(drop_cells[(ix*NDT+xdrop+Ns*NDT)%(Ns*NDT)*Nwarps+iwarp]);\
-  if(threadIdx.x==blockDim.x-1) {\
-  pars.drop.channelAddr[0]=channelSx; pars.drop.channelAddr[1]=channelSy; pars.drop.channelAddr[2]=channelSz;\
-  pars.drop.channelAddr[3]=channelTx; pars.drop.channelAddr[4]=channelTy; pars.drop.channelAddr[5]=channelTz;\
-  pars.drop.channelAddr[6]=channelVx; pars.drop.channelAddr[7]=channelVy; pars.drop.channelAddr[8]=channelVz;\
-  /*printf("addreses %p  %p\n", pars.drop.channel[0], channelSx);*/\
-  /*for(int inch=0; inch<channelSx-pars.drop.channel[0]; inch++) printf("inch=%d val=%g\n", inch, pars.drop.channel[0][inch]);*/\
-  }\
-  
+#define isCONzS(xc,zc) isCONzT(xc,zc)
+
+#define isCONzV(xc,zc) \
+2*iz+zc>=izBeg*2-xc     && 2*iz+zc<izEnd*2+xc     &&          zform==0 && eventype==1 || \
+2*iz+zc>=izBeg*2+xc-6   && 2*iz+zc<izEnd*2-xc+6   &&          zform==1 && eventype==1 || \
+2*iz+zc>=izBeg*2-xc-3   && 2*iz+zc<izEnd*2+xc+3   && xc<3  && zform==0 && eventype==0 || \
+2*iz+zc>=izBeg*2-xc+3   && 2*iz+zc<izEnd*2+xc-3   && xc>=3 && zform==0 && eventype==0 || \
+2*iz+zc>=izBeg*2+xc+3-6 && 2*iz+zc<izEnd*2-xc-3+6 && xc<3  && zform==1 && eventype==0 || \
+2*iz+zc>=izBeg*2+xc-3-6 && 2*iz+zc<izEnd*2-xc+3+6 && xc>=3 && zform==1 && eventype==0
+#else //if not def SPLIT_ZFORM
+#define isCONzT(xc,zc) 1
+#define isCONzS(xc,zc) 1
+#define isCONzV(xc,zc) 1
+#endif //SPLIT_ZFORM
+
+#define RPOINT_CHUNK_HEAD ;
+
+#define RPOINT_CHUNK_SHIFT ;
 
 #define I01 1
 #define I02 2

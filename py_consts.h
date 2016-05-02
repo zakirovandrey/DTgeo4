@@ -7,24 +7,29 @@ typedef float ftype;
 #define MPI_FTYPE MPI_FLOAT
 #endif
 
-#define gridNx 1350
-#define gridNy 416
-#define gridNz 1152
+#define gridNx 600 // Axis Sync
+#define gridNz 640 // Axis Vectorization
+#define gridNy 300 // Axis Async 
 
-#define ANISO_TR 2
+//#define ANISO_TR 2
 //#define CUDA_TEX_INTERP
 
-#define NDev 2
-#define NasyncNodes 1
-//#define GPUDIRECT_RDMA
+#define NDev 1
+#define GPUDIRECT_RDMA
 
-#define USE_AIVLIB_MODEL
+//#define DROP_DATA
+//#define USE_AIVLIB_MODEL
 //#define MPI_ON
-//#define TEST_RATE
+//#define MPI_TEST
+//#define TEST_RATE 1
+#define NOPMLS
 #define USE_WINDOW
-//#define COFFS_DEFAULT
+#define COFFS_DEFAULT
+//#define TIMERS_ON
+//#define SWAP_DATA
 //#define CLICK_BOOM
-#define SHARED_SIZE 14
+#define SHARED_SIZE 7
+#define SPLIT_ZFORM
 
 #define DROP_ONLY_V
 
@@ -33,25 +38,30 @@ typedef float ftype;
 const int Np=gridNx/3;
 const int GridNx=gridNx;
 #else
-const int Np=NS*6;
+const int Np=NP;//NS*1;
 const int GridNx=3*Np;
-#endif
+#endif//NS
 #ifndef NA
 const int GridNy=gridNy;
 #else 
-const int GridNy=NV;
+const int GridNy=3*NA;
+#endif//NA
+#ifndef NB
+#define NB NA
 #endif
 #ifndef NV
 const int GridNz=gridNz;
 #else
-const int GridNz=3*NA;
+const int GridNz=NV;
 #endif
 
-const int Npmlx=2*5;//2*24;
-const int Npmly=2*5;//24;
-const int Npmlz=2*16;//128;
+const int Nzw=128;
 
-const ftype ds=25./2, da=6.95, dv=25./2, dt=2./3.;
+const int Npmlx=2*1;//2*24;
+const int Npmly=2*0;//24;
+const int Npmlz=0*2*16;//128;
+
+const ftype ds=10.0, da=10.0, dv=10.0, dt=2./3.;
 
 extern struct TFSFsrc{
   ftype Vp, Vs, Rho;
@@ -59,11 +69,10 @@ extern struct TFSFsrc{
   ftype dRho;
   ftype F0;
   ftype tStop;
-  ftype srcXs, srcXa, srcXv;
+  ftype srcXs, srcXa, srcXv, sphR;
   ftype BoxMs, BoxPs; 
   ftype BoxMa, BoxPa; 
   ftype BoxMv, BoxPv;
-  ftype sphR;
   ftype V_max;
   int start;
   //----------surface source parameters-----------//

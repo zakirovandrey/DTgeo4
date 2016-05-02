@@ -1,45 +1,60 @@
 #ARCH ?= #k100#geocluster #gpupc1 #D
-USE_AIVLIB_MODEL ?= 1
+#USE_AIVLIB_MODEL ?= 1
 #MPI_ON ?= 1
 #USE_DOUBLE ?= 1
 
+ifeq      ($(COMP),k100)
+ARCH := sm_20
+else ifeq ($(COMP),gpupc1)
+ARCH := sm_35
+else ifeq ($(COMP),geocluster)
+ARCH := sm_50
+else ifeq ($(COMP),D)
+ARCH := sm_35
+else ifeq ($(COMP),ion)
+ARCH := sm_50
+else ifeq ($(COMP),supermic)
+ARCH := sm_52
+else
+ARCH := sm_35
+endif
+
 ifdef MPI_ON
-ifeq ($(ARCH),k100)
-GCC  ?= /usr/mpi/gcc/openmpi-1.4.2-qlc/bin/mpicc
+ifeq ($(COMP),k100)
+GCC  ?= /usr/mpi/gcc/mvapich2-1.5.1-qlc/bin/mpicc
 else
 GCC  ?= mpic++
 endif
 else
 GCC  ?= g++
 endif
-#NVCC := /home/zakirov/progs/cuda-7.0/bin/nvcc -ccbin $(GCC)
 
-ifeq ($(ARCH),k100)
-NVCC := /common/cuda-6.5/bin/nvcc -ccbin $(GCC) -O3 -G -g 
-GENCODE_SM := -arch=sm_20
-else ifeq ($(ARCH),geocluster)
-NVCC := nvcc -ccbin $(GCC) -O3
-GENCODE_SM := -arch=sm_50
-else ifeq ($(ARCH),gpupc1)
-NVCC := nvcc -ccbin $(GCC) -O3
-GENCODE_SM := -arch=sm_35
-else ifeq ($(ARCH),D)
-NVCC := nvcc -ccbin $(GCC) -O3 
-GENCODE_SM := -arch=sm_35
+ifeq      ($(COMP),k100)
+NVCC := /common/cuda-6.5/bin/nvcc 
+else ifeq ($(COMP),geocluster)
+NVCC := nvcc
+else ifeq ($(COMP),gpupc1)
+NVCC := nvcc
+else ifeq ($(COMP),D)
+NVCC := /home/zakirov/cuda-7.5/bin/nvcc 
+else ifeq ($(COMP),ion)
+NVCC := /mnt/D/home/zakirov/cuda-7.5/bin/nvcc
+else ifeq ($(COMP),supermic)
+NVCC := /usr/local/cuda-7.5/bin/nvcc
 else
-NVCC := nvcc -ccbin $(GCC) -O3
-GENCODE_SM := -arch=sm_50
+NVCC := nvcc
 endif 
+GENCODE_SM := -arch=$(ARCH)
 #NTIME = 0
-ALL_DEFS := NS NA NV NTIME DYSH MPI_ON USE_AIVLIB_MODEL USE_DOUBLE
+ALL_DEFS := NP NS NA NB NV NTIME DYSH MPI_ON USE_AIVLIB_MODEL USE_DOUBLE
 
 CDEFS := $(foreach f, $(ALL_DEFS), $(if $($f),-D$f=$($f)))
 
 # internal flags
-NVCCFLAGS   := -Xptxas="-v"   -Xcudafe "--diag_suppress=declared_but_not_referenced"
-CCFLAGS     := -O3 -fopenmp -fPIC $(CDEFS)# -DNV=$(NV) -DNA=$(NA) -DNS=$(NS) -DNTIME=$(NTIME) -DDYSH=$(DYSH) -DMPI_ON=$(MPI_ON) 
+NVCCFLAGS   := -ccbin $(GCC) -O3 -Xptxas="-v" #-Xcudafe "--diag_suppress=declared_but_not_referenced,set_but_not_used"
+CCFLAGS     := -O3 -fopenmp -fPIC $(CDEFS) 
 NVCCLDFLAGS :=
-LDFLAGS     := -L/usr/mpi/gcc/openmpi-1.4.2-qlc/lib64/ -L./ -L/usr/lib64/mpich2/lib/
+LDFLAGS     := -L./ -L/usr/mpi/gcc/mvapich2-1.5.1/lib/ -L/common/cuda-6.5/lib64/ -L/home/zakirov/cuda-7.5/lib64
 
 # Extra user flags
 EXTRA_NVCCFLAGS   ?=
@@ -47,23 +62,24 @@ EXTRA_NVCCLDFLAGS ?=
 EXTRA_LDFLAGS     ?=
 EXTRA_CCFLAGS     ?= #-std=c++11
 
-ifeq ($(ARCH),k100)
-INCLUDES  := -I/usr/mpi/gcc/openmpi-1.4.2-qlc/include/ -I./png/
-LIBRARIES := -lmpi -lcudart -lglut -lGL -lcufft -lpng -lgomp -lpthread
-else ifeq ($(ARCH),geocluster)
+ifeq ($(COMP),k100)
+INCLUDES  := -I/usr/mpi/gcc/mvapich2-1.5.1/lib/include/ -I./png/
+LIBRARIES := -lmpich -lcudart -lglut -lGL -lcufft -lpng -lgomp -lpthread
+else ifeq ($(COMP),geocluster)
 INCLUDES  := -I/usr/mpi/gcc/mvapich-1.2.0/include/
 LIBRARIES := -lcudart -lGL -lcufft -lpng -lgomp -lpthread -lpyaiv2
 ifdef MPI_ON
-LIBRARIES := -mpich $(LIBRARIES)
+LIBRARIES := -lmpich $(LIBRARIES)
 else
 LIBRARIES := -lglut $(LIBRARIES)
 endif
 else
 INCLUDES  := 
 LIBRARIES := -lcudart -lglut -lGL -lcufft -lpng -lgomp -lpthread
+endif
+
 ifdef USE_AIVLIB_MODEL
 LIBRARIES := $(LIBRARIES) -laiv
-endif
 endif
 
 ################################################################################
@@ -94,26 +110,26 @@ endif
 
 build: DTgeo _DTgeo.so
 
-kerTFSF.o: kerTFSF.inc.cu cuda_math.h params.h py_consts.h texmodel.cuh defs.h signal.hpp
-	$(EXEC) $(NVCC) $(INCLUDES) $(ALL_CCFLAGS) $(NVCCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $<
-kerTFSF_pmls.o: kerTFSF_pmls.inc.cu cuda_math.h params.h py_consts.h texmodel.cuh defs.h signal.hpp
-	$(EXEC) $(NVCC) $(INCLUDES) $(ALL_CCFLAGS) $(NVCCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $<
-kerITFSF.o: kerITFSF.inc.cu cuda_math.h params.h py_consts.h texmodel.cuh defs.h signal.hpp
-	$(EXEC) $(NVCC) $(INCLUDES) $(ALL_CCFLAGS) $(NVCCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $<
-kerITFSF_pmls.o: kerITFSF_pmls.inc.cu cuda_math.h params.h py_consts.h texmodel.cuh defs.h signal.hpp
-	$(EXEC) $(NVCC) $(INCLUDES) $(ALL_CCFLAGS) $(NVCCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $<
+kerTFSF.o: kerTFSF.inc.cu cuda_math.h params.h py_consts.h texmodel.cuh copyrags.cuh defs.h signal.hpp
+	$(EXEC) $(NVCC) $(NVCCFLAGS) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $<
+kerTFSF_pmls.o: kerTFSF_pmls.inc.cu cuda_math.h params.h py_consts.h texmodel.cuh copyrags.cuh defs.h signal.hpp
+	$(EXEC) $(NVCC) $(NVCCFLAGS) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $<
+kerITFSF.o: kerITFSF.inc.cu cuda_math.h params.h py_consts.h texmodel.cuh copyrags.cuh defs.h signal.hpp
+	$(EXEC) $(NVCC) $(NVCCFLAGS) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $<
+kerITFSF_pmls.o: kerITFSF_pmls.inc.cu cuda_math.h params.h py_consts.h texmodel.cuh copyrags.cuh defs.h signal.hpp
+	$(EXEC) $(NVCC) $(NVCCFLAGS) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $<
 
 #AsyncTYPES := D_pmls S_pmls I_pmls X_pmls DD_pmls D S I X DD
-AsyncTYPES := D_pmls S_pmls I_pmls X_pmls D S I X
+AsyncTYPES := D_pmls S_pmls Is_pmls Id_pmls Xs_pmls Xd_pmls D S Is Id Xs Xd
 obj_files = $(foreach a,$(AsyncTYPES), ker$a.o)
 
 ker%.o: ker%.inc.cu
 ker%.o: %.inc.cu
-$(obj_files): cuda_math.h params.h py_consts.h defs.h texmodel.cuh 
-	$(EXEC) $(NVCC) $(INCLUDES) $(ALL_CCFLAGS) $(NVCCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $(subst .o,.inc.cu,$@)
+$(obj_files): cuda_math.h params.h py_consts.h defs.h copyrags.cuh texmodel.cuh 
+	$(EXEC) $(NVCC) $(NVCCFLAGS) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $(subst .o,.inc.cu,$@)
 
-dt.o: DTgeo.cu diamond.cu im3D.hpp im2D.h cuda_math.h params.h py_consts.h texmodel.cuh init.h signal.hpp window.hpp
-	$(EXEC) $(NVCC) $(INCLUDES) $(ALL_CCFLAGS) $(NVCCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $<
+dt.o: DTgeo.cu diamond.cu drop.cu im3D.hpp im2D.h cuda_math.h params.h py_consts.h texmodel.cuh init.h signal.hpp window.hpp
+	$(EXEC) $(NVCC) $(NVCCFLAGS) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $<
 
 TEXMODEL_DEPS := texmodel.cu texmodel.cuh params.h py_consts.h cuda_math.h
 ifdef USE_AIVLIB_MODEL
@@ -122,18 +138,21 @@ obj_files := spacemodel/src/space_model.o spacemodel/src/middle_model.o $(obj_fi
 endif
 
 texmodel.o: $(TEXMODEL_DEPS)
-	$(EXEC) $(NVCC) $(INCLUDES) $(ALL_CCFLAGS) $(NVCCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $<
+	$(EXEC) $(NVCC) $(NVCCFLAGS) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $<
 DTgeo: texmodel.o dt.o im3D.o kerTFSF.o kerTFSF_pmls.o kerITFSF.o kerITFSF_pmls.o $(obj_files)
 ifndef USE_AIVLIB_MODEL
-	$(EXEC) $(NVCC) $(ALL_LDFLAGS) $(GENCODE_FLAGS) $(LDFLAGS) -o $@ $+ $(LIBRARIES)
+	$(EXEC) $(NVCC) $(NVCCFLAGS) $(ALL_LDFLAGS) $(GENCODE_FLAGS) $(LDFLAGS) -o $@ $+ $(LIBRARIES)
 endif
-	$(EXEC) $(NVCC) $(ALL_LDFLAGS) $(GENCODE_FLAGS) $(LDFLAGS) -o cudaDTgeo.so $+ $(LIBRARIES) --shared
+	$(EXEC) $(NVCC) $(NVCCFLAGS) $(ALL_LDFLAGS) $(GENCODE_FLAGS) $(LDFLAGS) -o cudaDTgeo.so $+ $(LIBRARIES) --shared
 
 im3D.o: im3D.cu im3D.hpp cuda_math.h fpal.h im2D.h
-	$(EXEC) $(NVCC) $(INCLUDES) $(ALL_CCFLAGS) $(NVCCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $<
+	$(EXEC) $(NVCC) $(NVCCFLAGS) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -dc $<
 
 cudaDTgeo.so: DTgeo
 #DTgeo: texmodel.o dt.o im3D.o kerTFSF.o kerTFSF_pmls.o $(obj_files)
+
+generate:
+	python genDT.py
 
 run: build
 	$(EXEC) ./DTgeo

@@ -101,7 +101,7 @@ class data():
       if not difs[i]: continue;
       pmlname=pmlnames[n]
       c="xyz"[i]; sign=signs[i]; difk24 = "dif%s[%d]"%(c,uniqdifN)
-      if data.Atype=="D" and not data.PMLS and self.typus=="V" and i==0: difk24 = "difx[%d]"%uniqdifN
+      if data.PrepareDifs and self.typus=="V" and i==0: difk24 = "difx[%d]"%uniqdifN
       Kpmlind = "Kpml_i%s%+d"%(c,self.coord[i])
       #for cyclic PML ### if c=='y': Kpmlind = "(Kpml_iy%+d+KNpmly)%%KNpmly"%self.coord[i]
       if c=='y': Kpmlind = "(Kpml_iy%+d)%%KNpmly"%self.coord[i]
@@ -109,7 +109,7 @@ class data():
       Kpml1,Kpml2 = map(lambda n: ("Kpml%s%d[%s]"%(c,n,Kpmlind)), (1,2))
       if pmltype[i]: print "    %s = %s*%s %s %s*%s;"%(pmlname, Kpml1, pmlname, sign, Kpml2, difk24 )
       elif i==0 and self.typus in "SV" and pml1d: print "    %s += %s %s "%(pmlname, sign, difk24),
-      elif i==1 and self.typus in "SV" and pml1d: print "    %s %s ;"%(sign, difk24) if data.Atype!="D" or data.PMLS else ";"; splitnums=(0,2)
+      elif i==1 and self.typus in "SV" and pml1d: print "    %s %s ;"%(sign, difk24) if not data.PrepareDifs else ";"; splitnums=(0,2)
       elif          self.typus=="T"    and pml1d: print "    %s %s= %s ;"%(pmlname, sign, difk24)
       else:  print "    %s %s= %s;"%(pmlname, sign, difk24)
       n+=1
@@ -122,7 +122,7 @@ class data():
 #    print "    %s = coff%s*( pmlname1 + pmlname2 );"%( self.name, self.typus )
   
   def prepare_difs(self, time=0):
-    if not self.name or data.Atype!="D" or data.PMLS: return
+    if not self.name or not data.PrepareDifs: return
     print "  //------- prepare difsXY for field %s"%self.typus,"xyz"[self.proj],self.coord
     difx, dify, difz = None, None, None
     acc_coff = {2:["1",], 4:["p27","1"]}[order]
@@ -158,12 +158,14 @@ class data():
     if not self.name: return
     if isOutA(self.coord[1], data.Atype): return
     print "  //------- update %s"%self.typus,"xyz"[self.proj],self.coord
+    checkZdmd = "if(isCONz%s(%g,%g))"%(self.typus, (self.coord[0]+2*NDT)%(2*NDT), self.coord[2])
+    print "  %s{"%checkZdmd
     #print "  h = modelRag%s->h[%2d][iz];"%("MCP"[1+self.plsId[0]],self.fldind-self.fldindS*2-(self.proj if self.typus=="S" else 0) )
     hind = self.fldind-self.fldindS*2-(self.proj if self.typus=="S" else 0)
     #print "  TEXCOFF%s(%d, %+d, %+d, iz*2%+d, I,h[%2d]);"%(self.typus+('','xyz'[fld.proj])[fld.typus=='T'],hind,self.coord[0],self.coord[1],self.coord[2], hind)
     if self.typus!="S" or self.proj==0: print "  coff%s = Arrcoff%s[%d];"%(self.typus,self.typus,hind)
     pml=1; pmlx=0; pmly=0; pmlz=1
-    if data.Atype=='S' or data.Atype[0]=='I' or data.Atype[0]=='X': pmly=1
+    if data.Atype=='S' or data.Atype[0:2]=='Xs' or data.Atype[0:2]=='Is': pmly=1
     difx, dify, difz = None, None, None
     acc_coff = {2:["1",], 4:["p27","1"]}[order]
     if self.neigh[0][0].name: difx = "-%13s+%13s+%s*%13s-%s*%13s"%(self.neigh[0][2].name, self.neigh[0][3].name, acc_coff[0],self.neigh[0][0].name, acc_coff[0],self.neigh[0][1].name, )
@@ -185,8 +187,8 @@ class data():
           crd = "SAV"[xyz];  srcsign='checktest'
           if nearf.coord[xyz]!=f.coord[xyz]:
             print "  src%d%s = 0.0f; upd_inSF = inSF(%g+glob_ix*2*NDT,%g+iy*2*NDT,%g+iz*2); neigh_inSF = inSF(%g+glob_ix*2*NDT,%g+iy*2*NDT,%g+iz*2);"%(ni,'xyz'[xyz], f.coord[0],f.coord[1],f.coord[2],nearf.coord[0],nearf.coord[1],nearf.coord[2])
-            print "  if     (!upd_inSF &&  neigh_inSF) src%d%s =  SrcTFSF_%s%s(glob_ix*2*NDT+(%g), iz*2+(%g), %g+iy*2*NDT, pars.iStep*Ntime+it+%g);"%(ni,'xyz'[xyz], nearf.typus, "xyz"[nearf.proj], nearf.coord[0], nearf.coord[2], nearf.coord[1], time)
-            print "  else if( upd_inSF && !neigh_inSF) src%d%s = -SrcTFSF_%s%s(glob_ix*2*NDT+(%g), iz*2+(%g), %g+iy*2*NDT, pars.iStep*Ntime+it+%g);"%(ni,'xyz'[xyz], nearf.typus, "xyz"[nearf.proj], nearf.coord[0], nearf.coord[2], nearf.coord[1], time)
+            print "  if     (!upd_inSF &&  neigh_inSF) src%d%s =  SrcTFSF_%s%s(glob_ix*2*NDT+(%g), iz*2+(%g), %g+iy*2*NDT, tshift+it+%g);"%(ni,'xyz'[xyz], nearf.typus, "xyz"[nearf.proj], nearf.coord[0], nearf.coord[2], nearf.coord[1], time)
+            print "  else if( upd_inSF && !neigh_inSF) src%d%s = -SrcTFSF_%s%s(glob_ix*2*NDT+(%g), iz*2+(%g), %g+iy*2*NDT, tshift+it+%g);"%(ni,'xyz'[xyz], nearf.typus, "xyz"[nearf.proj], nearf.coord[0], nearf.coord[2], nearf.coord[1], time)
           else: return
         for ni in 2,3,0,1: makeSigns(self,self.neigh[xyz][ni],ni)
         near_tfsf = map(lambda nachbar: "(%s%s)"%(nachbar.name,SrcFunc(self,nachbar)), self.neigh[xyz])
@@ -206,14 +208,14 @@ class data():
       cofftype_aniso.append( map(lambda xyzw: "*coffS.%s"%xyzw, ("wzy","zwy","yyx")[self.proj]) )
       print "  #ifndef ANISO_TR"
     dtdr_coffs = cofftype if SqGrid else ("*dtdxd24%s"%cofftype[0],"*dtdyd24%s"%cofftype[1],"*dtdzd24%s"%cofftype[2])
-    if   (data.Atype!="D" or data.PMLS) and difx: print "  difx[%2d] = (%s)%s;"%(uniqdifN,difx, dtdr_coffs[0]); 
-    if   (data.Atype!="D" or data.PMLS) and dify: print "  dify[%2d] = (%s)%s;"%(uniqdifN,dify, dtdr_coffs[1]); 
+    if   (not data.PrepareDifs) and difx: print "  difx[%2d] = (%s)%s;"%(uniqdifN,difx, dtdr_coffs[0]); 
+    if   (not data.PrepareDifs) and dify: print "  dify[%2d] = (%s)%s;"%(uniqdifN,dify, dtdr_coffs[1]); 
     if                                      difz: print "  difz[%2d] = (%s)%s;"%(uniqdifN,difz, dtdr_coffs[2]);
     for aniso_type in range(len(cofftype_aniso)):
       print "  #elif ANISO_TR==%d"%(aniso_type+1)
       cft = cofftype_aniso[aniso_type]; dtdr_coffs = cft if SqGrid else ("*dtdxd24%s"%cft[0],"*dtdyd24%s"%cft[1],"*dtdzd24%s"%cft[2])
-      if (data.Atype!="D" or data.PMLS) and difx: print "  difx[%2d] = (%s)%s;"%(uniqdifN,difx, dtdr_coffs[0]); 
-      if (data.Atype!="D" or data.PMLS) and dify: print "  dify[%2d] = (%s)%s;"%(uniqdifN,dify, dtdr_coffs[1]); 
+      if (not data.PrepareDifs) and difx: print "  difx[%2d] = (%s)%s;"%(uniqdifN,difx, dtdr_coffs[0]); 
+      if (not data.PrepareDifs) and dify: print "  dify[%2d] = (%s)%s;"%(uniqdifN,dify, dtdr_coffs[1]); 
       if                                    difz: print "  difz[%2d] = (%s)%s;"%(uniqdifN,difz, dtdr_coffs[2]);
     if self.typus=="S": print "  #else\n  #error UNKNOWN ANISOTROPY TYPE\n  #endif"
     pmlfields = "Vx,Vy,Vz,Tx,Ty,Tz,Sx,Sy,Sz,Ex,Ey,Ez,Hx,Hy,Hz"
@@ -233,14 +235,14 @@ class data():
         if pml_ever: self.updatePML((pmlx,pmly,pmlz), (difx,dify,difz), (signx,signy,signz))
         else:
           summands = list(itertools.compress( map( lambda (sign,xyz): " %s %s"%(sign, "dif%s[%d]"%(xyz,uniqdifN)), zip((signx,signy,signz),'xyz') ), (difx,dify,difz) ))
-          if data.Atype=="D" and not data.PMLS and self.typus in "VS": summands = ("difx[%d]"%uniqdifN, "%s difz[%d]"%(signz,uniqdifN) )
+          if data.PrepareDifs and self.typus in "VS": summands = ("difx[%d]"%uniqdifN, "%s difz[%d]"%(signz,uniqdifN) )
           print "      %s+= %s ;"%(self.name, ''.join(summands) )
         if pmlz==1 and difz: print "  } else {"
       if difz: print "  }"
       if data.PMLS and pmlx==1: print "  } else {"
     if data.PMLS: print "  }"
 
-    if data.Atype[0]=='B' and (self.coord[1]==YbndI or self.coord[1]==YbndI+1):
+    if data.Atype[0]=='I' and not isOutA(self.coord[1], data.Atype) and isOutA(self.coord[1]-2, data.Atype):
       print "  %s+= SrcSurf_%s%s(glob_ix*2*NDT+(%g), iz*2+(%g), %g+iy*2*NDT, pars.iStep*Ntime+it+%g);"%(self.name, self.typus,'xyz'[self.proj], self.coord[0], self.coord[2], self.coord[1], time)
       if self.typus!="S": print "  #ifndef DROP_ONLY_V"
       if self.typus=="S": fval = "%s*0.5625+%s*0.5625-%s*0.0625-%s*0.0625"%tuple(map(lambda n: n.name, self.neigh[self.proj]))
@@ -250,6 +252,7 @@ class data():
       print "  dropPP(ix*NDT%+d, %d-chunk%s[0], iz, it, channel%s, %s);"%(
           self.coord[0]/2, self.coord[0]/2, self.typus+('xyz'[self.proj] if self.typus!='S' else 'i'), self.typus+'xyz'[self.proj], fval)
       if self.typus!="S": print "  #endif// DROP_ONLY_V"
+    print "  }//checkZdmd"
     uniqdifN+= 1
 
 class Plaster():
@@ -372,12 +375,12 @@ class DiamondTorre():
         if fld.hasdz:
           if fld.neigh[2][3] not in data.Shareds:
             shrn+=1
-            if not isOutA(fld.coord[1], data.Atype): print "  shared_fld[%2d][iz].%s = %s; //"%(shrn/2, 'xy'[shrn%2], fld.neigh[2][(1,0)[fld.coord[2]]].name), fld.coord[:2]
+            if not isOutA(fld.coord[1], data.Atype): print "  shared_fld[%2d][izP0].%s = %s; //"%(shrn/2, 'xy'[shrn%2], fld.neigh[2][(1,0)[fld.coord[2]]].name), fld.coord[:2]
           for zz in range(order):
             near = fld.neigh[2][zz]
             if near not in data.Registers and near not in data.Shareds: data.Shareds[near]="shared_fld[%2d][iz%s].%s"%(shrn/2, "PM"[near.coord[2]<0]+str(abs(near.coord[2]/2))+"mc"[near.coord[2]%2], 'xy'[shrn%2])
       global uniqdifN; uniqdifN=0
-      if data.Atype=="D" and not data.PMLS:
+      if data.PrepareDifs:
         for fld in d.fields: 
           if fld.neigh[0][3].name and fld.neigh[0][3] not in data.Registers:
             print "  reg_R = %s;"%fld.neigh[0][3].name
@@ -434,13 +437,14 @@ class DiamondTorre():
     data.Shareds.clear()
 
 
-def make_DTorre(typus, vpml=0, atype="D", spml=0, LargeNV=0): #type=0 or 1
+def make_DTorre(typus, vpml=0, atype="D", spml=0, Disp=0, LargeNV=0): #type=0 or 1
 #  for dmd in Plaster.Dmd_shifts:
 #    for datN, dat_sh in enumerate(Plaster.DATAshifts):
 #       abs_c = map(sum, zip((0*2*NDT,0*2*NDT), dat_sh[:2], dmd[0])) + [dat_sh[2],]
 #       print "{%s,%s,%s}, "%(abs_c[0], abs_c[1], abs_c[2]),
 
-  data.inPMLv=vpml; data.Atype=atype; data.PMLS=spml; data.LargeNV=LargeNV
+  data.inPMLv=vpml; data.Atype=atype; data.PMLS=spml; data.LargeNV=LargeNV; data.Disp=Disp
+  data.PrepareDifs = False#data.Atype=="D" and not data.PMLS #False#data.Atype=="D" and not data.PMLS
   DT = DiamondTorre(typus=typus)
   DT.prepare()
   DT.loop()

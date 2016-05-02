@@ -60,6 +60,7 @@ struct SphereTFSF{
     //const int realx = (_x+ks*pars.GPUx0+ks*Ns-ks*pars.wleft)%(ks*Ns)+pars.wleft*ks;
     x = dxs*realx-src.srcXs; y=dxa*_y-src.srcXa; z = dxv*_z-src.srcXv;
     ftype r = radius(x,y,z); phase =src.F0*((t-src.start)*dt-(r-src.r0src)*src.dvp); d1r = 1./r;
+    //printf("SphereTFSF r=%g phase=%g F0=%g dvp=%g\n", r,phase,src.F0,src.dvp);
   }
   __device__ inline void set_sk_vr() { v_r = Vr(); sk = Vrs(); }
   __device__ inline ftype Vrs() { //skobka (dpr/dr-pr/r) int po t
@@ -159,7 +160,7 @@ __device__ inline ftype Boom(ftype x, ftype y, ftype z, ftype t, bool S) {
   else return dt*( (-src.Ampl*z*src.NastyaF0)*(src.NastyaF0*L7<3>(arg)/src.Vp+L7<2>(arg)/rr)/(rr*rr)-2*src.Vs*src.Vs*(z/(rr*rr*rr))*((rr*rr-z*z)*Pd2r+Prs*(3*z*z-rr*rr)/rr) );  
 }
 
-__device__ __noinline__ ftype SrcSurf_Vy(const int s, const int v, const int a,  const ftype tt){
+__device__ __noinline__ ftype SrcSurf_Vxyz(const int s, const int v, const int a,  const ftype tt){
   const ftype dxs=dx*0.5,dxa=dy*0.5,dxv=dz*0.5;
   ftype x = dxs*s-src.srcXs, z=dxa*a-src.srcXa, y = dxv*v-src.srcXv;
   //gauss pulse

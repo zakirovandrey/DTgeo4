@@ -11,8 +11,8 @@
 #include <aivlib/arrayTD.hpp>
 
 using namespace aiv;
-const int tSkip=4;
-const int Nt = 4000;
+const int tSkip=8;
+const int Nt = 8000;
 const int xStep=3, yStep=1, yShift=0;
 int Nx,Nw; 
 float t,x1,x2;

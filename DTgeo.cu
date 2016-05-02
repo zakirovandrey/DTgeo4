@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <stdlib.h>
 #include <unistd.h>
 #ifdef MPI_ON
 #include <mpi.h>
@@ -231,7 +234,7 @@ __global__ void mxw_draw(float* buf) {
     #endif
     int ix = blockIdx.x*2*NDT+shx+4;
     int iy = blockIdx.y*2*NDT+shy+2;
-    float* pbuf=&buf[threadIdx.x+NT*(iy/2+Ny*(ix/2))];
+    float* pbuf=&buf[threadIdx.x+NT*((iy/2)%(Ny-1)+Ny*(ix/2))];
     switch(pars.nFunc) {
       case 0 : if(idom%2==0) { pbuf+=0    ; MXW_DRAW_ANY(p->Si[idom/2].duofld[0][iz].x ); } break; //Sx
       case 1 : if(idom%2==0) { pbuf+=0    ; MXW_DRAW_ANY(p->Si[idom/2].duofld[0][iz].y ); } break; //Sy
@@ -294,7 +297,8 @@ struct idle_func_calc: public any_idle_func_struct {
 void idle_func_calc::step() {
   calcStep();
   CreateShowTexModel();
-  CHECK_ERROR( cudaMemset(parsHost.arr4im.Arr3Dbuf,0,((long long int)Nx)*Ny*Nz*sizeof(ftype)) ); mxw_draw<<<dim3((USE_UVM==2)?Np:Ns,Na),NT>>>(parsHost.arr4im.Arr3Dbuf);
+  CHECK_ERROR( cudaMemset(parsHost.arr4im.Arr3Dbuf,0,((long long int)Nx)*Ny*Nz*sizeof(ftype)) );
+  mxw_draw<<<dim3((USE_UVM==2)?Np:Ns,Na),NT>>>(parsHost.arr4im.Arr3Dbuf);
   im3DHost.initCuda(parsHost.arr4im);
   recalc_at_once=true;
 }
@@ -364,7 +368,8 @@ static void key_func(unsigned char key, int x, int y) {
   copy2dev( parsHost, pars );
   cudaDeviceSynchronize(); CHECK_ERROR( cudaGetLastError() );
   CreateShowTexModel();
-  CHECK_ERROR( cudaMemset(parsHost.arr4im.Arr3Dbuf,0,((long long int)Nx)*Ny*Nz*sizeof(ftype)) ); mxw_draw<<<dim3((USE_UVM==2)?Np:Ns,Na),NT>>>(parsHost.arr4im.Arr3Dbuf);
+  CHECK_ERROR( cudaMemset(parsHost.arr4im.Arr3Dbuf,0,((long long int)Nx)*Ny*Nz*sizeof(ftype)) );
+  mxw_draw<<<dim3((USE_UVM==2)?Np:Ns,Na),NT>>>(parsHost.arr4im.Arr3Dbuf);
   im3DHost.initCuda(parsHost.arr4im);
   recalc_at_once=true;
 }
@@ -387,16 +392,16 @@ double PMLgamma_func(int i, int N, ftype dstep){ //return 0;
   if(i>=N-3) return 0;
   N-=3;
   double attenuation_factor = 4;
-  double sigma_max= shotpoint.V_max*log(10000)*( (attenuation_factor+1)/(2*(N*dstep*0.5)) );
+  double sigma_max= shotpoint.V_max*log(1000)*( (attenuation_factor+1)/(2*(N*dstep*0.5)) );
   double x_max = pow(sigma_max, 1./attenuation_factor);
   double x = x_max-i*(x_max/N);
   return pow(x, attenuation_factor);
 }
-double PMLgamma_funcY(int i, int N, ftype dstep){ //return 0; 
+double PMLgamma_funcY(int i, int N, ftype dstep){ //return 0;
   if(i>=N-3) return 0;
   N-=3;
   double attenuation_factor = 4;
-  double sigma_max= shotpoint.V_max*log(10000)*( (attenuation_factor+1)/(2*(N*dstep*0.5)) );
+  double sigma_max= shotpoint.V_max*log(1000)*( (attenuation_factor+1)/(2*(N*dstep*0.5)) );
   double x_max = pow(sigma_max, 1./attenuation_factor);
   double x = x_max-i*(x_max/N);
   return pow(x, attenuation_factor);
@@ -405,7 +410,7 @@ double PMLgamma_funcZ(int i, int N, ftype dstep){ //return 0;
   if(i>=N-3) return 0;
   N-=3;
   double attenuation_factor = 4;
-  double sigma_max= shotpoint.V_max*log(10000)*( (attenuation_factor+1)/(2*(N*dstep*0.5)) );
+  double sigma_max= shotpoint.V_max*log(1000)*( (attenuation_factor+1)/(2*(N*dstep*0.5)) );
   double x_max = pow(sigma_max, 1./attenuation_factor);
   double x = x_max-i*(x_max/N);
   return pow(x, attenuation_factor);
@@ -416,7 +421,8 @@ void setPMLcoeffs(ftype* k1x, ftype* k2x, ftype* k1y, ftype* k2y, ftype* k1z, ft
     k1x[i] = 2.0*k2x[i]-1;
   }
   for(int i=0; i<KNpmly; i++){
-    k2y[i] = 1.0/(1.0+0.5*dt*PMLgamma_funcY(KNpmly/2-abs(i-KNpmly/2), KNpmly/2, dy));
+    //k2y[i] = 1.0/(1.0+0.5*dt*PMLgamma_funcY(KNpmly-i, KNpmly, dy));
+    k2y[i] = 1.0/(1.0+0.5*dt*PMLgamma_func(KNpmly/2-abs(i-KNpmly/2), KNpmly/2, dy));
     k1y[i] = 2.0*k2y[i]-1;
   }
   for(int i=0; i<KNpmlz; i++){
@@ -424,97 +430,140 @@ void setPMLcoeffs(ftype* k1x, ftype* k2x, ftype* k1y, ftype* k2y, ftype* k1z, ft
     k1z[i] = 2.0*k2z[i]-1;
   }
 }
+void setPeer2Peer(int node,int subnode, int* isp2p){
+  for(int i=0; i<NDev; i++) for(int j=i+1; j<NDev; j++) {
+      int canp2p=0; CHECK_ERROR(cudaDeviceCanAccessPeer(&canp2p,i,j));
+      if(canp2p) { 
+        CHECK_ERROR(cudaSetDevice(i)); CHECK_ERROR(cudaDeviceEnablePeerAccess(j,0));
+        CHECK_ERROR(cudaSetDevice(j)); CHECK_ERROR(cudaDeviceEnablePeerAccess(i,0));
+              printf("node.subnode %d.%d: %d<-->%d can Peer2Peer\n"   , node, subnode, i,j);
+      } else  printf("node.subnode %d.%d: %d<-->%d cannot Peer2Peer\n", node, subnode, i,j);
+      if(j==i+1) isp2p[i]=canp2p;
+  }
+  CHECK_ERROR(cudaSetDevice(0)); 
+}
 void GeoParamsHost::set(){
   
   #ifndef USE_WINDOW
   if(Np!=Ns) { printf("Error: if not defined USE_WINDOW Np must be equal Ns\n"); exit(-1); }
   #endif//USE_WINDOW
 
-  int node=0, Nprocs=1;
+  node=0; subnode=0; int Nprocs=1;
   #ifdef MPI_ON
-  MPI_Comm_rank (MPI_COMM_WORLD, &node);   node/= NasyncNodes;
+  MPI_Comm_rank (MPI_COMM_WORLD, &node);   subnode=node%NasyncNodes; node/= NasyncNodes;
   MPI_Comm_size (MPI_COMM_WORLD, &Nprocs); 
+  if(node==0) printf("Total MPI tasks: %d\n", Nprocs);
   #endif
-  if(Nprocs%NasyncNodes!=0) { printf("Error: mpi procs must be dividable by NasyncNodes\n"); exit(-1); }
+  if(Nprocs%NasyncNodes!=0) { printf("Error: mpi procs (%d) must be dividable by NasyncNodes(%d)\n",Nprocs,NasyncNodes); exit(-1); }
   Nprocs/= NasyncNodes;
   mapNodeSize = new int[Nprocs];
   int accSizes=0;
-  for(int i=0; i<Nprocs; i++) mapNodeSize[i] = Np/Nprocs+Ns; 
+  mapNodeSize[0] = Np/Nprocs+Ns/2; for(int i=1; i<Nprocs; i++) mapNodeSize[i] = Np/Nprocs+Ns;
   int sums=0; for(int i=0; i<Nprocs-1; i++) sums+= mapNodeSize[i]-Ns; mapNodeSize[Nprocs-1]=Np-sums;
   for(int i=0; i<Nprocs; i++) {
     if(node==i) printf("X-size=%d rags on node %d\n", mapNodeSize[i], i);
     #ifdef MPI_ON
-    if(mapNodeSize[i]<2*Ns) { printf("Data on node %d is too small\n", i); exit(-1); }
+    if(mapNodeSize[i]<2*Ns && Nprocs>1) { printf("Data on node %d is too small\n", i); exit(-1); }
     #endif
     accSizes+= mapNodeSize[i];
   }
   if(accSizes-Ns*(Nprocs-1)!=Np) { printf("Error: sum (mapNodes) must be = Np+Ns*(Nprocs-1)\n"); exit(-1); }
   #ifdef MPI_ON
-  if(mapNodeSize[0]       <=Npmlx/2+Ns+Ns) { printf("Error: mapNodeSize[0]<=Npmlx/2+Ns+Ns\n"); exit(-1); }
-  if(mapNodeSize[Nprocs-1]<=Npmlx/2+Ns+Ns) { printf("Error: mapNodeSize[Nodes-1]<=Npmlx/2+Ns+Ns\n"); exit(-1); }
+  if(mapNodeSize[0]       <=Npmlx/2+Ns+Ns && Nprocs>1) { printf("Error: mapNodeSize[0]<=Npmlx/2+Ns+Ns\n"); exit(-1); }
+  if(mapNodeSize[Nprocs-1]<=Npmlx/2+Ns+Ns && Nprocs>1) { printf("Error: mapNodeSize[Nodes-1]<=Npmlx/2+Ns+Ns\n"); exit(-1); }
   #endif
-  omp_set_num_threads(2);
+  if(Np%Ns!=0) { printf("Error: Np must be dividable by Ns\n"); exit(-1); }
+  if(NB%NA!=0) { printf("Error: NB must be dividable by NA\n"); exit(-1); }
+  if(NB<NA   ) { printf("Error: NB < NA\n"); exit(-1); }
+  omp_set_num_threads(8);
 
   //dir= new string("/Run/zakirov/tmp/"); //ix=Nx+Nbase/2; Yshtype=0;
   dir= new std::string(im3DHost.drop_dir);
   drop.dir=dir;
   struct stat st = {0};
 
-  if (stat(dir->c_str(), &st) == -1)  mkdir(dir->c_str(), 0700);
-
+  if (stat(dir->c_str()     , &st) == -1)  mkdir(dir->c_str()     , 0700);
+  if (stat(swap_dir->c_str(), &st) == -1)  mkdir(swap_dir->c_str(), 0700);
+  
+  for(int i=0;i<NDev-1;i++) isp2p[i]=0;
+  setPeer2Peer(node,subnode,isp2p);
+  for(int i=0;i<NDev-1;i++) isp2p[i]=1;
+  
+  if(node==0) print_info();
+  Tsteps+= node*Ntime;
+  if(node==0) printf("Full %d Big steps\n", Tsteps/Ntime);
   if(node==0) printf("Grid size: %dx%d Rags /%dx%dx%d Yee_cells/, TorreH=%d\n", Np, Na, Np*NDT,Na*NDT,Nv, Ntime);
   if(node==0) printf("Window size: %d, copy-shift step %d \n", Ns, Window::NTorres );
   if(gridNx%NDT!=0) { printf("Error: gridNx must be dividable by %d\n", NDT); exit(-1); }
-  if(gridNz%NDT!=0) { printf("Error: gridNz must be dividable by %d\n", NDT); exit(-1); }
+  if(gridNy%NDT!=0) { printf("Error: gridNy must be dividable by %d\n", NDT); exit(-1); }
   if(dt*sqrt(1/(dx*dx)+1/(dy*dy)+1/(dz*dz))>6./7.) { printf("Error: Courant condition is not satisfied\n"); exit(-1); }
 //  if(sizeof(DiamondRag)!=sizeof(RagArray)) { printf("Error: sizeof(DiamondRag)=%d != sizeof(RagArray)\n", sizeof(DiamondRag),sizeof(RagArray)); exit(-1); }
   int NaStripe=0; for(int i=0;i<NDev;i++) NaStripe+=NStripe[i]; if(NaStripe!=Na) { printf("Error: sum(NStripes[i])!=NA\n"); exit(-1); }
   iStep = 0; isTFSF=true;
   Zcnt=0.5*Nz*dz;
+  //IndNx=2*(Np*NDT+2); IndNy=2*(Na*NDT+1); IndNz=2*Nz;
+  #ifdef COFFS_DEFAULT
+  //IndNx=1; IndNy=1; IndNz=1;
+  #endif
   nFunc = 0; MaxFunc = sizeof(FuncStr)/sizeof(char*);
   size_t size_xz     = Ns   *sizeof(DiamondRag   );
   size_t size_xzModel= Ns   *sizeof(ModelRag     );
   size_t sz          = Na*size_xz;
   size_t szModel     = Na*size_xzModel;
+  size_t szBuf       = Ntime*sizeof(halfRag      );
   size_t szPMLa      = Ns*Npmly*sizeof(DiamondRagPML);
   size_t size_xzPMLs = Npmlx/2*sizeof(DiamondRagPML);
+  #ifdef NOPMLS
+  size_xzPMLs = 0;
+  #endif
   size_t szPMLs      = Na*size_xzPMLs;
   if(node==0) {
-  printf("GPU Cell's Array size     : %.2fM = %.2fM(Main)+%.2fM(Model)+%.2fM(PMLs)+%.2fM(PMLa)\n", 
-           (sz+szModel+szPMLs+szPMLa)/(1024.*1024.),
+  printf("GPU Cell's Array size     : %7.2fM = %7.2fM(Main)+%7.2fM(Buffers)+%7.2fM(Model)+%7.2fM(PMLs)+%7.2fM(PMLa)\n", 
+           (sz+2*NDev*szBuf+szModel+szPMLs+szPMLa)/(1024.*1024.),
            sz     /(1024.*1024.), 
+      NDev*szBuf*2/(1024.*1024.), 
            szModel/(1024.*1024.), 
            szPMLs /(1024.*1024.), 
            szPMLa /(1024.*1024.)  );
-  for(int istrp=0; istrp<NDev-1; istrp++) printf( "                   Stripe%d: %.2fM = %.2fM+%.2fM+%.2fM\n", istrp, 
-           (size_xz*NStripe[istrp]+size_xzModel*NStripe[istrp]+size_xzPMLs*NStripe[istrp])/(1024.*1024.),
-           size_xz     *NStripe[istrp ]/(1024.*1024.), 
-           size_xzModel*NStripe[istrp ]/(1024.*1024.),
-           size_xzPMLs *NStripe[istrp ]/(1024.*1024.)  );
-                                         printf( "                   Stripe%d: %.2fM = %.2fM+%.2fM+%.2fM+%.2fM\n", NDev-1, 
-           (size_xz*NStripe[NDev-1]+size_xzModel*NStripe[NDev-1]+size_xzPMLs*NStripe[NDev-1]+szPMLa)/(1024.*1024.),
-           size_xz     *NStripe[NDev-1]/(1024.*1024.), 
+  for(int istrp=0; istrp<NDev-1; istrp++) printf( "                   Stripe%d: %7.2fM = %7.2fM      +%7.2fM         +%7.2fM       +%7.2fM\n", istrp, 
+           (size_xz*NStripe[istrp]+2*szBuf+size_xzModel*NStripe[istrp]+size_xzPMLs*NStripe[istrp])/(1024.*1024.),
+           size_xz    *NStripe[istrp ]/(1024.*1024.), 
+           szBuf*2                    /(1024.*1024.), 
+           size_xzModel*NStripe[istrp]/(1024.*1024.),
+           size_xzPMLs*NStripe[istrp ]/(1024.*1024.)  );
+                                          printf( "                   Stripe%d: %7.2fM = %7.2fM      +%7.2fM         +%7.2fM       +%7.2fM      +%7.2fM\n", NDev-1, 
+           (size_xz*NStripe[NDev-1]+2*szBuf+size_xzModel*NStripe[NDev-1]+size_xzPMLs*NStripe[NDev-1]+szPMLa)/(1024.*1024.),
+           size_xz    *NStripe[NDev-1]/(1024.*1024.), 
+           szBuf*2                    /(1024.*1024.), 
            size_xzModel*NStripe[NDev-1]/(1024.*1024.),
-           size_xzPMLs *NStripe[NDev-1]/(1024.*1024.), 
+           size_xzPMLs*NStripe[NDev-1]/(1024.*1024.), 
            szPMLa                      /(1024.*1024.)  );
   }
+  size_t freemem[NDev], totalmem[NDev];
   for(int idev=0; idev<NDev; idev++) {
     CHECK_ERROR( cudaSetDevice(idev) );
     CHECK_ERROR( cudaMalloc( (void**)&(ragsInd  [idev]), size_xzModel*NStripe[idev]) );
     CHECK_ERROR( cudaMalloc( (void**)&(rags     [idev]), size_xz     *NStripe[idev]) );
+    CHECK_ERROR( cudaMalloc( (void**)&(p2pBufM  [idev]), szBuf     ) );
+    CHECK_ERROR( cudaMalloc( (void**)&(p2pBufP  [idev]), szBuf     ) );
 //    CHECK_ERROR( cudaMalloc( (void**)&(ragsPMLs[idev]), size_xzPMLs*NStripe[idev]    ) );
     #ifndef USE_WINDOW
     CHECK_ERROR( cudaMalloc( (void**)&(ragsPMLsL[idev]), size_xzPMLs*NStripe[idev]    ) );
     CHECK_ERROR( cudaMalloc( (void**)&(ragsPMLsR[idev]), size_xzPMLs*NStripe[idev]    ) );
     #endif
-    CHECK_ERROR( cudaMalloc( (void**)& ragsPMLa[idev]  , szPMLa/2 ) );
-    CHECK_ERROR( cudaMemset(rags   [idev], 0, size_xz     *NStripe[idev]) );
-    CHECK_ERROR( cudaMemset(ragsInd[idev], 0, size_xzModel*NStripe[idev]) );
+    CHECK_ERROR( cudaMalloc( (void**)& ragsPMLa[idev]  , szPMLa ) );
+    CHECK_ERROR( cudaMemset(rags    [idev], 0, size_xz    *NStripe[idev])  );
+    CHECK_ERROR( cudaMemset(p2pBufM [idev], 0, szBuf)  );
+    CHECK_ERROR( cudaMemset(p2pBufP [idev], 0, szBuf)  );
+    CHECK_ERROR( cudaMemset(ragsInd [idev], 0, size_xzModel*NStripe[idev]) );
     #ifndef USE_WINDOW
     cudaMemset(ragsPMLsL[idev], 0,  size_xzPMLs*NStripe[idev]);
     cudaMemset(ragsPMLsR[idev], 0,  size_xzPMLs*NStripe[idev]);
     #endif
-    CHECK_ERROR( cudaMemset(ragsPMLa[idev], 0,                     szPMLa/2) );
+    if(idev==NDev-1)
+    CHECK_ERROR( cudaMemset(ragsPMLa[idev], 0,                     szPMLa) );
+    CHECK_ERROR( cudaMemGetInfo(&freemem[idev], &totalmem[idev]));
+    printf("Node/subnode %3d/%d : device %d: GPU memory free %.2fM of %.2fM\n", node, subnode, idev, freemem[idev]/(1024.*1024.), totalmem[idev]/(1024.*1024.) );
   }
   CHECK_ERROR( cudaSetDevice(0) );
 
@@ -522,11 +571,23 @@ void GeoParamsHost::set(){
   #if 1//USE_WINDOW
   printf("Allocating RAM memory on node %d: %g Gb\n", node, (Nn*Na*sizeof(DiamondRag)+Nn*Na*sizeof(ModelRag)+Nn*Npmly*sizeof(DiamondRagPML)+Npmlx*Na*sizeof(DiamondRagPML))/(1024.*1024.*1024.));
   #if USE_UVM==2
-  CHECK_ERROR( cudaMallocHost(&data     , Nn*Na     *sizeof(DiamondRag   )) ); memset(data     , 0, Nn*Na     *sizeof(DiamondRag   ));
-  CHECK_ERROR( cudaMallocHost(&dataInd  , Nn*Na     *sizeof(ModelRag     )) ); memset(dataInd  , 0, Nn*Na     *sizeof(ModelRag     ));
-  CHECK_ERROR( cudaMallocHost(&dataPMLa , Nn*Npmly  *sizeof(DiamondRagPML)) ); memset(dataPMLa , 0, Nn*Npmly  *sizeof(DiamondRagPML));
-  CHECK_ERROR( cudaMallocHost(&dataPMLsL, Npmlx/2*Na*sizeof(DiamondRagPML)) ); memset(dataPMLsL, 0, Npmlx/2*Na*sizeof(DiamondRagPML));
-  CHECK_ERROR( cudaMallocHost(&dataPMLsR, Npmlx/2*Na*sizeof(DiamondRagPML)) ); memset(dataPMLsR, 0, Npmlx/2*Na*sizeof(DiamondRagPML));
+  #ifdef SWAP_DATA
+  char swapdata[256]; sprintf(swapdata, "%s/swapdata.%d.%d", swap_dir->c_str(), node,subnode);
+  int swp_data; swp_data = open(swapdata,O_RDWR|O_TRUNC|O_CREAT, 0666);
+  if(swp_data==-1) { char s[128]; sprintf(s,"Error opening file %s at %d.%d",swapdata,node,subnode); perror(s); exit(-1); }
+  lseek(swp_data, Nn*Na*sizeof(DiamondRag), SEEK_SET);
+  write(swp_data, "", 1); lseek(swp_data, 0, SEEK_SET);
+  data = (DiamondRag*)mmap(0, Nn*Na*sizeof(DiamondRag), PROT_READ|PROT_WRITE, MAP_SHARED, swp_data,0);
+  if(data == MAP_FAILED) { char s[128]; sprintf(s,"Error mmap data at %d.%d",node,subnode); perror(s); exit(-1); }
+  close(swp_data);
+  #else
+  CHECK_ERROR( cudaMallocHost(&data     , Nn*Na     *sizeof(DiamondRag    )) );
+  #endif//SWAP_DATA
+  memset(data     , 0, Nn*Na     *sizeof(DiamondRag    ));
+  CHECK_ERROR( cudaMallocHost(&dataInd  , Nn*Na     *sizeof(ModelRag      )) ); memset(dataInd  , 0, Nn*Na     *sizeof(ModelRag      ));
+  CHECK_ERROR( cudaMallocHost(&dataPMLa , Nn*Npmly  *sizeof(DiamondRagPML )) ); memset(dataPMLa , 0, Nn*Npmly  *sizeof(DiamondRagPML ));
+  CHECK_ERROR( cudaMallocHost(&dataPMLsL, Npmlx/2*Na*sizeof(DiamondRagPML )) ); memset(dataPMLsL, 0, Npmlx/2*Na*sizeof(DiamondRagPML ));
+  CHECK_ERROR( cudaMallocHost(&dataPMLsR, Npmlx/2*Na*sizeof(DiamondRagPML )) ); memset(dataPMLsR, 0, Npmlx/2*Na*sizeof(DiamondRagPML ));
   if (node==1) printf("data allocated, pointer to %p\n", data);
   for(int i=0; i<node; i++) data    -= mapNodeSize[i]*Na   ; data    +=node*Ns*Na;
   for(int i=0; i<node; i++) dataInd -= mapNodeSize[i]*Na   ; dataInd +=node*Ns*Na;
@@ -538,25 +599,39 @@ void GeoParamsHost::set(){
   dataPMLs = new DiamondRagPML[Npmlx*Na]; memset(dataPMLs, 0, Npmlx*Na*sizeof(DiamondRagPML));
   #endif
   #endif
-  #ifndef GPUDIRECT_RDMA
-  size_t size_rdma = sizeof(DiamondRag)*(NDT*NDT/2+1);
+  //size_t size_rdma = sizeof(DiamondRag)*(NDT*NDT/2+1);
+  size_t size_rdma = szBuf;
   CHECK_ERROR( cudaMallocHost( (void**)&rdma_send_buf, size_rdma ) );
   CHECK_ERROR( cudaMallocHost( (void**)&rdma_recv_buf, size_rdma ) );
-  #endif
+  for(int idev=0; idev<NDev; idev++) {
+    CHECK_ERROR( cudaMallocHost( (void**)&(p2pBufM_host_snd[idev]), szBuf     ) );
+    CHECK_ERROR( cudaMallocHost( (void**)&(p2pBufP_host_snd[idev]), szBuf     ) );
+    CHECK_ERROR( cudaMallocHost( (void**)&(p2pBufM_host_rcv[idev]), szBuf     ) );
+    CHECK_ERROR( cudaMallocHost( (void**)&(p2pBufP_host_rcv[idev]), szBuf     ) );
+    CHECK_ERROR( cudaMemset(p2pBufM_host_snd[idev], 0, szBuf)  );
+    CHECK_ERROR( cudaMemset(p2pBufP_host_snd[idev], 0, szBuf)  );
+    CHECK_ERROR( cudaMemset(p2pBufM_host_rcv[idev], 0, szBuf)  );
+    CHECK_ERROR( cudaMemset(p2pBufP_host_rcv[idev], 0, szBuf)  );
+  }
+  for(int i=0; i<NDev-1; i++) {
+    size_t size_p2p = sizeof(DiamondRag)*(NDT*NDT/2+1);
+    p2p_buf[i]=0;
+    if(isp2p[i]) CHECK_ERROR( cudaMallocHost( (void**)&p2p_buf[i], size_p2p ) );
+  }
 
   drop.init();
   texs.init();
-  cuTimer t0;
+  cuTimer t0; t0.init();
   int xL=0; for(int inode=0; inode<node; inode++) xL+= mapNodeSize[inode]; xL-= Ns*node;
   int xR = xL+mapNodeSize[node];
-  omp_set_num_threads(4);
+/*  omp_set_num_threads(4);
   for(int x=0;x<Np;x++) {
     printf("Initializing h-parameter %.2f%%      \r",100*double(x+1)/Np); fflush(stdout);
     if(x>=xL && x<xR) { 
       #pragma omp parallel for
       for(int y=0;y<Na;y++) dataInd[x*Na+y].set(x,y);
     }
-  }
+  }*/
 //  printf("t0=%g\n",t0.gettime());
   
   sensors = new std::vector<Sensor>();
@@ -615,11 +690,11 @@ float read_float(char* str) {
 void add_sensor(int ix, int iy, int iz);
 
 bool help_only=false, test_only=false;
-int Tsteps=10*Ntime;
+int Tsteps=Ntime*10;
 int _main(int argc, char** argv) {
   #ifdef MPI_ON
-  MPI_Init(&argc,&argv);
-  /*int ismpith;
+//  MPI_Init(&argc,&argv);
+  int ismpith;
   MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &ismpith);
   switch(ismpith) {
     case MPI_THREAD_SINGLE:     printf("MPI multithreading implementation MPI_TREAD_SINGLE\n"); break;
@@ -628,10 +703,16 @@ int _main(int argc, char** argv) {
     case MPI_THREAD_MULTIPLE:   printf("MPI multithreading implementation MPI_THREAD_MULTIPLE\n"); break;
     default: printf("Unknown MPI multithreading implementation\n"); break;
   }
-  if (ismpith != MPI_THREAD_MULTIPLE) { printf("Error: MPI implementation does not support multithreading\n"); MPI_Abort(MPI_COMM_WORLD, 1); }*/
+  //if (ismpith != MPI_THREAD_MULTIPLE) { printf("Error: MPI implementation does not support multithreading\n"); MPI_Abort(MPI_COMM_WORLD, 1); }
+  MPI_Type_contiguous( sizeof(DiamondRag   )/sizeof(ftype), MPI_FTYPE, &MPI_DMDRAGTYPE );
+  MPI_Type_contiguous( sizeof(DiamondRagPML)/sizeof(ftype), MPI_FTYPE, &MPI_RAGPMLTYPE );
+  MPI_Type_contiguous( sizeof(halfRag      )/sizeof(ftype), MPI_FTYPE, &MPI_HLFRAGTYPE );
+  MPI_Type_commit(&MPI_DMDRAGTYPE);
+  MPI_Type_commit(&MPI_RAGPMLTYPE);
+  MPI_Type_commit(&MPI_HLFRAGTYPE);
   #endif
   argv ++; argc --;
-  im3DHost.reset();
+  im3DHost.reset(); parsHost.swap_dir=new std::string("./");
   while(argc>0 && strncmp(*argv,"--",2)==0) {
     if(strncmp(*argv,"--help",6)==0) return print_help();
     else if(strcmp(*argv,"--test")==0) { test_only = true; argv ++; argc --; continue; }
@@ -645,6 +726,7 @@ int _main(int argc, char** argv) {
     else if(strcmp(*argv,"--mesh_col")==0) read_float3(im3DHost.mesh_col, argv[1]);
     else if(strcmp(*argv,"--box_col")==0) read_float3(im3DHost.box_col, argv[1]);
     else if(strcmp(*argv,"--drop_dir")==0) strcpy(im3DHost.drop_dir,argv[1]);
+    else if(strcmp(*argv,"--swap_dir")==0) parsHost.swap_dir=new std::string(argv[1]);
     else if(strcmp(*argv,"--sensor")==0) { float v[3]; read_float3(v, argv[1]); add_sensor(v[0], v[1], v[2]); }
     else { printf("Illegal parameters' syntax notation\n"); return print_help(); }
     //else if(strcmp(*argv,"--")==0) read_float3(im3DHost., argv[1]);
@@ -658,6 +740,7 @@ try {
   if(type_diag_flag>=1) printf("Настройка опций визуализации по умолчанию\n");
   //imHost.reset();
   cudaTimer tm; tm.start();
+  //if(GridNy>50) Tsteps=Ntime*10;
   parsHost.set();
   cudaDeviceSynchronize(); CHECK_ERROR( cudaGetLastError() );
   copy2dev( parsHost, pars );
@@ -690,7 +773,8 @@ try {
   im3DHost.reset(parsHost.arr4im);
   copy2dev( parsHost, pars );
   CreateShowTexModel();
-  CHECK_ERROR( cudaMemset(parsHost.arr4im.Arr3Dbuf,0,((long long int)Nx)*Ny*Nz*sizeof(ftype)) ); mxw_draw<<<dim3((USE_UVM==2)?Np:Ns,Na),NT>>>(parsHost.arr4im.Arr3Dbuf);
+  CHECK_ERROR( cudaMemset(parsHost.arr4im.Arr3Dbuf,0,((long long int)Nx)*Ny*Nz*sizeof(ftype)) );
+  mxw_draw<<<dim3((USE_UVM==2)?Np:Ns,Na),NT>>>(parsHost.arr4im.Arr3Dbuf);
   cudaDeviceSynchronize(); CHECK_ERROR( cudaGetLastError() );
   im2D.get_device(2,0);
   im2D.init_image(argc,argv, im3DHost.bNx, im3DHost.bNy, "im3D");
